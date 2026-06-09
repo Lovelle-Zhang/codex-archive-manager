@@ -69,19 +69,18 @@ function rolloutTimeFromName(name) {
 
 function localTime(seconds) {
   if (!seconds) return '';
-  return new Date(seconds * 1000).toLocaleString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
+  return new Date(seconds * 1000).toLocaleString('en-US', {
     hour12: false,
   });
 }
 
 function compactTitle(row, id) {
   const raw = String(row?.title || row?.first_user_message || row?.preview || '').trim();
-  if (!raw) return `(未找到标题：${id})`;
+  if (!raw) return `(Untitled: ${id})`;
   const oneLine = raw.replace(/\s+/g, ' ').trim();
   if (oneLine.startsWith('Automation:')) {
     const match = oneLine.match(/Last run: (never|[0-9TZ:.\-]+)/);
-    return match ? `Automation: EyeFlow 对话轮换监控 (${match[1]})` : 'Automation: EyeFlow 对话轮换监控';
+    return match ? `Automation: EyeFlow conversation rotation monitor (${match[1]})` : 'Automation: EyeFlow conversation rotation monitor';
   }
   return oneLine.length > 120 ? `${oneLine.slice(0, 117)}...` : oneLine;
 }
@@ -280,7 +279,7 @@ const page = String.raw`<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Codex 归档管理器</title>
+  <title>Codex Archive Manager</title>
   <style>
     :root {
       color-scheme: light;
@@ -461,6 +460,7 @@ const page = String.raw`<!doctype html>
     button {
       cursor: pointer;
       font-weight: 620;
+      white-space: nowrap;
       transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
     }
     button:hover:not(:disabled) {
@@ -916,9 +916,10 @@ const page = String.raw`<!doctype html>
       justify-content: flex-start;
     }
     body.sidebar .row-actions button {
-      flex: 1 1 96px;
+      flex: 1 1 120px;
       height: 34px;
       padding: 0 8px;
+      font-size: 13px;
     }
     body.sidebar .row-meta {
       gap: 7px;
@@ -930,24 +931,24 @@ const page = String.raw`<!doctype html>
     <div class="shell">
       <div class="topbar">
         <div class="brand">
-          <h1>Codex 归档管理器</h1>
-          <div class="subtitle" id="archivePath">本地归档</div>
+          <h1>Codex Archive Manager</h1>
+          <div class="subtitle" id="archivePath">Local archive</div>
         </div>
       </div>
     </div>
   </header>
   <main>
-    <section class="workspace" aria-label="归档列表">
+    <section class="workspace" aria-label="Archive list">
       <div class="controls">
-        <label class="sr-only" for="q">搜索</label>
-        <input id="q" placeholder="搜索标题、时间或文件名">
-        <label class="sr-only" for="filter">筛选</label>
+        <label class="sr-only" for="q">Search</label>
+        <input id="q" placeholder="Search title, time, or filename">
+        <label class="sr-only" for="filter">Filter</label>
         <select id="filter">
-          <option value="all">全部归档</option>
-          <option value="normal">普通对话</option>
-          <option value="automation">自动化记录</option>
+          <option value="all">All archives</option>
+          <option value="normal">Conversations</option>
+          <option value="automation">Automation runs</option>
         </select>
-        <button id="refresh" class="primary">刷新</button>
+        <button id="refresh" class="primary">Refresh</button>
         <span id="meta" class="meta">0 / 0</span>
       </div>
       <div id="rows" class="archive-list"></div>
@@ -956,24 +957,24 @@ const page = String.raw`<!doctype html>
 
   <dialog id="confirm">
     <div class="modal">
-      <h2 id="confirmTitle">确认删除</h2>
+      <h2 id="confirmTitle">Confirm delete</h2>
       <p id="confirmBody"></p>
       <div class="modal-actions">
-        <button id="cancel">取消</button>
-        <button id="confirmDelete" class="danger">确认删除</button>
+        <button id="cancel">Cancel</button>
+        <button id="confirmDelete" class="danger">Confirm delete</button>
       </div>
     </div>
   </dialog>
   <dialog id="details" class="detail-dialog">
     <div class="modal">
-      <h2 id="detailsTitle">回看归档</h2>
+      <h2 id="detailsTitle">Archive Preview</h2>
       <div class="detail-body">
         <dl class="detail-meta" id="detailsMeta"></dl>
         <div class="transcript" id="detailsMessages"></div>
       </div>
       <div class="modal-actions">
-        <button id="openProject" class="ghost">打开项目文件夹</button>
-        <button id="closeDetails" class="primary">关闭</button>
+        <button id="openProject" class="ghost">Open project folder</button>
+        <button id="closeDetails" class="primary">Close</button>
       </div>
     </div>
   </dialog>
@@ -1016,7 +1017,7 @@ const page = String.raw`<!doctype html>
       return [
         {
           id: 'demo-archive-1',
-          title: '整理 Codex 归档管理器',
+          title: 'Review Codex archive cleanup',
           rolloutTime: '2026-06-09 16:42:18',
           archivedAt: '2026/6/9 16:45:02',
           updatedAt: '2026-06-09 16:42:18',
@@ -1027,7 +1028,7 @@ const page = String.raw`<!doctype html>
         },
         {
           id: 'demo-archive-2',
-          title: 'Automation: 项目状态巡检',
+          title: 'Automation: Project status check',
           rolloutTime: '2026-06-09 15:30:04',
           archivedAt: '2026/6/9 15:42:11',
           updatedAt: '2026-06-09 15:30:04',
@@ -1038,7 +1039,7 @@ const page = String.raw`<!doctype html>
         },
         {
           id: 'demo-archive-3',
-          title: '回看一次历史对话',
+          title: 'Look back at an archived conversation',
           rolloutTime: '2026-06-08 22:18:36',
           archivedAt: '2026/6/9 09:12:45',
           updatedAt: '2026-06-08 22:18:36',
@@ -1051,9 +1052,9 @@ const page = String.raw`<!doctype html>
     }
 
     function archiveKind(item) {
-      if (!item.exists) return '文件缺失';
-      if (item.title.startsWith('Automation:')) return '自动化';
-      return '对话';
+      if (!item.exists) return 'Missing file';
+      if (item.title.startsWith('Automation:')) return 'Automation';
+      return 'Conversation';
     }
 
     function showToast(message) {
@@ -1080,33 +1081,33 @@ const page = String.raw`<!doctype html>
       const items = visibleItems();
       meta.textContent = items.length + ' / ' + archives.length;
       if (!items.length) {
-        rows.innerHTML = '<div class="empty">没有匹配的归档</div>';
+        rows.innerHTML = '<div class="empty">No matching archives</div>';
         return;
       }
       rows.innerHTML = items.map(item => {
-        const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">文件已不在归档夹</span>';
+        const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">File is missing from the archive folder</span>';
         const kind = archiveKind(item);
-        const badgeClass = kind === '自动化' ? 'badge auto' : kind === '文件缺失' ? 'badge missing' : 'badge';
+        const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
         return ''
           + '<article class="archive-row">'
           + '<div class="row-main">'
           + '<div class="row-topline"><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
-          + '<div class="row-meta"><span>会话 ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>归档 ' + escapeHtml(item.archivedAt || '未记录') + '</span><span>' + size + '</span></div>'
+          + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>Archived ' + escapeHtml(item.archivedAt || 'Unknown') + '</span><span>' + size + '</span></div>'
           + '</div>'
-          + '<div class="row-side"><strong>记录文件</strong><span class="row-file">' + escapeHtml(item.fileName || item.file) + '</span></div>'
+          + '<div class="row-side"><strong>Archive file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file) + '</span></div>'
           + '<div class="row-actions">'
-          + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">回看</button>'
-          + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">删除归档</button>'
+          + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
+          + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>'
           + '</div>'
           + '</article>';
       }).join('');
     }
 
     async function load() {
-      meta.textContent = '读取中';
+      meta.textContent = 'Loading';
       if (demoMode) {
         archives = demoArchives();
-        archivePath.textContent = '演示数据，不读取本机 Codex 文件';
+        archivePath.textContent = 'Demo data. No local Codex files are read.';
         render();
         return;
       }
@@ -1114,23 +1115,23 @@ const page = String.raw`<!doctype html>
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       archives = data.archives;
-      archivePath.textContent = data.archiveDir || '本地归档';
+      archivePath.textContent = data.archiveDir || 'Local archive';
       render();
     }
 
     function askDelete(item) {
       pendingDelete = { id: item.id, mode: 'index' };
       const confirmTitle = document.querySelector('#confirmTitle');
-      confirmTitle.textContent = '删除这条归档？';
-      confirmDelete.textContent = '确认删除归档';
+      confirmTitle.textContent = 'Delete this archive?';
+      confirmDelete.textContent = 'Delete archive';
       const notes = [
-        ['✓', '删除这条历史对话的归档文件。'],
-        ['✓', '同时从 Codex 的归档列表中移除这一项。'],
-        ['✓', '不会改动这个对话曾经使用过的项目文件。']
+        ['✓', 'Deletes the archived conversation file.'],
+        ['✓', 'Removes this item from the Codex archive list.'],
+        ['✓', 'Does not modify any files in the project used by this conversation.']
       ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
-        + '<span class="delete-title">要删除的归档<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">Archive to delete<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
         + '</span>'
@@ -1140,41 +1141,41 @@ const page = String.raw`<!doctype html>
 
     async function showDetails(item) {
       currentDetailsId = item.id;
-      detailsTitle.textContent = '读取中';
+      detailsTitle.textContent = 'Loading';
       detailsMeta.innerHTML = '';
-      detailsMessages.innerHTML = '<div class="empty">正在读取归档内容</div>';
+      detailsMessages.innerHTML = '<div class="empty">Loading archive content</div>';
       openProject.disabled = true;
       detailsDialog.showModal();
       if (demoMode) {
-        detailsTitle.textContent = item.title || '回看归档';
+        detailsTitle.textContent = item.title || 'Archive preview';
         openProject.disabled = true;
-        openProject.textContent = '演示模式';
+        openProject.textContent = 'Demo mode';
         detailsMeta.innerHTML = ''
-          + '<dt>项目路径</dt><dd>/demo/project</dd>'
-          + '<dt>归档时间</dt><dd>' + escapeHtml(item.archivedAt || '未记录') + '</dd>'
-          + '<dt>记录文件</dt><dd>' + escapeHtml(item.fileName || item.file || 'demo.jsonl') + '</dd>';
+          + '<dt>Project path</dt><dd>/demo/project</dd>'
+          + '<dt>Archived at</dt><dd>' + escapeHtml(item.archivedAt || 'Unknown') + '</dd>'
+          + '<dt>Archive file</dt><dd>' + escapeHtml(item.fileName || item.file || 'demo.jsonl') + '</dd>';
         detailsMessages.innerHTML = ''
-          + '<article class="message user"><div class="message-role">你</div><pre class="message-text">我想回看这次归档里做过什么。</pre></article>'
-          + '<article class="message"><div class="message-role">Codex</div><pre class="message-text">这里会显示归档里的用户和助手消息，方便你确认内容后再决定是否删除归档。</pre></article>';
+          + '<article class="message user"><div class="message-role">You</div><pre class="message-text">I want to review what happened in this archived conversation.</pre></article>'
+          + '<article class="message"><div class="message-role">Codex</div><pre class="message-text">The preview shows archived user and assistant messages so you can check the content before deleting the archive.</pre></article>';
         return;
       }
       try {
         const res = await fetch('/api/archives/' + item.id + '/details', { cache: 'no-store' });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        detailsTitle.textContent = data.title || '回看归档';
+        detailsTitle.textContent = data.title || 'Archive preview';
         openProject.disabled = !data.projectExists;
-        openProject.textContent = data.projectExists ? '打开项目文件夹' : '项目文件夹不存在';
+        openProject.textContent = data.projectExists ? 'Open project folder' : 'Project folder missing';
         detailsMeta.innerHTML = ''
-          + '<dt>项目路径</dt><dd>' + escapeHtml(data.cwd || '未记录') + '</dd>'
-          + '<dt>归档时间</dt><dd>' + escapeHtml(data.archivedAt || '未记录') + '</dd>'
-          + '<dt>记录文件</dt><dd>' + escapeHtml(data.rolloutPath || '未找到') + '</dd>';
+          + '<dt>Project path</dt><dd>' + escapeHtml(data.cwd || 'Unknown') + '</dd>'
+          + '<dt>Archived at</dt><dd>' + escapeHtml(data.archivedAt || 'Unknown') + '</dd>'
+          + '<dt>Archive file</dt><dd>' + escapeHtml(data.rolloutPath || 'Not found') + '</dd>';
         if (!data.messages.length) {
-          detailsMessages.innerHTML = '<div class="empty">没有可预览的用户/助手消息</div>';
+          detailsMessages.innerHTML = '<div class="empty">No user or assistant messages to preview</div>';
           return;
         }
         detailsMessages.innerHTML = data.messages.map(message => {
-          const role = message.role === 'user' ? '你' : 'Codex';
+          const role = message.role === 'user' ? 'You' : 'Codex';
           const className = message.role === 'user' ? 'message user' : 'message';
           return ''
             + '<article class="' + className + '">'
@@ -1183,7 +1184,7 @@ const page = String.raw`<!doctype html>
             + '</article>';
         }).join('');
       } catch (err) {
-        detailsTitle.textContent = '读取失败';
+        detailsTitle.textContent = 'Failed to load';
         detailsMessages.innerHTML = '<div class="empty">' + escapeHtml(err.message || String(err)) + '</div>';
       }
     }
@@ -1194,7 +1195,7 @@ const page = String.raw`<!doctype html>
       try {
         const res = await fetch('/api/archives/' + currentDetailsId + '/open-project', { method: 'POST' });
         if (!res.ok) throw new Error(await res.text());
-        showToast('已打开项目文件夹');
+        showToast('Project folder opened');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
@@ -1206,12 +1207,12 @@ const page = String.raw`<!doctype html>
       if (!pendingDelete) return;
       if (demoMode) {
         dialog.close();
-        showToast('演示模式不会删除文件');
+        showToast('Demo mode does not delete files');
         pendingDelete = null;
         return;
       }
       confirmDelete.disabled = true;
-      confirmDelete.textContent = '删除中';
+      confirmDelete.textContent = 'Deleting';
       try {
         const res = await fetch('/api/archives/' + pendingDelete.id, {
           method: 'DELETE',
@@ -1221,12 +1222,12 @@ const page = String.raw`<!doctype html>
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
         await load();
-        showToast('已删除归档');
+        showToast('Archive deleted');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
         confirmDelete.disabled = false;
-        confirmDelete.textContent = '确认删除归档';
+        confirmDelete.textContent = 'Delete archive';
         pendingDelete = null;
       }
     }
@@ -1248,7 +1249,7 @@ const page = String.raw`<!doctype html>
     });
 
     load().catch(err => {
-      meta.textContent = '读取失败';
+      meta.textContent = 'Failed to load';
       rows.innerHTML = '<div class="empty">' + escapeHtml(err.message || err) + '</div>';
     });
   </script>

@@ -10,7 +10,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 
 - Lists archived Codex sessions with readable titles and timestamps.
 - Searches and filters normal conversations and automation runs.
-- Previews archived user/assistant conversations with `回看`.
+- Previews archived user/assistant conversations with `Preview`.
 - Opens the recorded project folder when it still exists locally.
 - Removes archived session files and the matching local Codex thread index record.
 
@@ -48,17 +48,17 @@ All data stays local. The app does not upload archives, database contents, proje
 
 ## Delete Behavior
 
-Use `删除归档` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
+Use `Delete archive` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
 
 This only changes Codex archive/session metadata. It does not modify files inside your project directories.
 
 ## Review Archives
 
-Use `回看` to preview the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
+Use `Preview` to inspect the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
 
 ## Safety Notes
 
-- This tool edits local Codex metadata only when you choose `删除归档`.
+- This tool edits local Codex metadata only when you choose `Delete archive`.
 - Codex may also keep lower-level logs such as `logs_2.sqlite`; this tool intentionally does not edit those logs.
 - Back up your Codex data before using destructive actions on important sessions.
 - Do not commit your real `~/.codex` data, `.jsonl` archives, or SQLite databases.
