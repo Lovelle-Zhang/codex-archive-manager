@@ -4,6 +4,8 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 
 > Unofficial and experimental. This project is not affiliated with OpenAI or the Codex team. It reads local Codex Desktop files whose structure may change in future Codex releases.
 
+![Codex Archive Manager screenshot](docs/screenshot.png)
+
 ## What It Does
 
 - Lists archived Codex sessions with readable titles and timestamps.
@@ -28,6 +30,12 @@ Sidebar-friendly mode:
 
 ```txt
 http://127.0.0.1:8787/?mode=sidebar
+```
+
+Demo mode with sample data:
+
+```txt
+http://127.0.0.1:8787/?demo=1
 ```
 
 ## What It Reads

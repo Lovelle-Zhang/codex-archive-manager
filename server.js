@@ -980,7 +980,10 @@ const page = String.raw`<!doctype html>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
-    if (new URLSearchParams(location.search).get('mode') === 'sidebar') {
+    const params = new URLSearchParams(location.search);
+    const demoMode = params.get('demo') === '1';
+
+    if (params.get('mode') === 'sidebar') {
       document.body.classList.add('sidebar');
     }
 
@@ -1007,6 +1010,44 @@ const page = String.raw`<!doctype html>
       return String(value ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       }[c]));
+    }
+
+    function demoArchives() {
+      return [
+        {
+          id: 'demo-archive-1',
+          title: '整理 Codex 归档管理器',
+          rolloutTime: '2026-06-09 16:42:18',
+          archivedAt: '2026/6/9 16:45:02',
+          updatedAt: '2026-06-09 16:42:18',
+          fileName: 'rollout-2026-06-09T16-42-18-demo-archive-1.jsonl',
+          file: 'rollout-2026-06-09T16-42-18-demo-archive-1.jsonl',
+          exists: true,
+          sizeKB: 84
+        },
+        {
+          id: 'demo-archive-2',
+          title: 'Automation: 项目状态巡检',
+          rolloutTime: '2026-06-09 15:30:04',
+          archivedAt: '2026/6/9 15:42:11',
+          updatedAt: '2026-06-09 15:30:04',
+          fileName: 'rollout-2026-06-09T15-30-04-demo-archive-2.jsonl',
+          file: 'rollout-2026-06-09T15-30-04-demo-archive-2.jsonl',
+          exists: true,
+          sizeKB: 131
+        },
+        {
+          id: 'demo-archive-3',
+          title: '回看一次历史对话',
+          rolloutTime: '2026-06-08 22:18:36',
+          archivedAt: '2026/6/9 09:12:45',
+          updatedAt: '2026-06-08 22:18:36',
+          fileName: 'rollout-2026-06-08T22-18-36-demo-archive-3.jsonl',
+          file: 'rollout-2026-06-08T22-18-36-demo-archive-3.jsonl',
+          exists: true,
+          sizeKB: 57
+        }
+      ];
     }
 
     function archiveKind(item) {
@@ -1063,6 +1104,12 @@ const page = String.raw`<!doctype html>
 
     async function load() {
       meta.textContent = '读取中';
+      if (demoMode) {
+        archives = demoArchives();
+        archivePath.textContent = '演示数据，不读取本机 Codex 文件';
+        render();
+        return;
+      }
       const res = await fetch('/api/archives', { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
@@ -1098,6 +1145,19 @@ const page = String.raw`<!doctype html>
       detailsMessages.innerHTML = '<div class="empty">正在读取归档内容</div>';
       openProject.disabled = true;
       detailsDialog.showModal();
+      if (demoMode) {
+        detailsTitle.textContent = item.title || '回看归档';
+        openProject.disabled = true;
+        openProject.textContent = '演示模式';
+        detailsMeta.innerHTML = ''
+          + '<dt>项目路径</dt><dd>/demo/project</dd>'
+          + '<dt>归档时间</dt><dd>' + escapeHtml(item.archivedAt || '未记录') + '</dd>'
+          + '<dt>记录文件</dt><dd>' + escapeHtml(item.fileName || item.file || 'demo.jsonl') + '</dd>';
+        detailsMessages.innerHTML = ''
+          + '<article class="message user"><div class="message-role">你</div><pre class="message-text">我想回看这次归档里做过什么。</pre></article>'
+          + '<article class="message"><div class="message-role">Codex</div><pre class="message-text">这里会显示归档里的用户和助手消息，方便你确认内容后再决定是否删除归档。</pre></article>';
+        return;
+      }
       try {
         const res = await fetch('/api/archives/' + item.id + '/details', { cache: 'no-store' });
         if (!res.ok) throw new Error(await res.text());
@@ -1144,6 +1204,12 @@ const page = String.raw`<!doctype html>
 
     async function doDelete() {
       if (!pendingDelete) return;
+      if (demoMode) {
+        dialog.close();
+        showToast('演示模式不会删除文件');
+        pendingDelete = null;
+        return;
+      }
       confirmDelete.disabled = true;
       confirmDelete.textContent = '删除中';
       try {

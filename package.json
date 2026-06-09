@@ -2,6 +2,10 @@
   "name": "codex-archive-manager",
   "version": "0.1.0",
   "description": "Unofficial local-first archive viewer and cleaner for Codex Desktop sessions.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lovelle-Zhang/codex-archive-manager.git"
+  },
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
@@ -9,6 +13,7 @@
   },
   "keywords": [
     "codex",
+    "codex-desktop",
     "archive",
     "local-first",
     "sqlite"
