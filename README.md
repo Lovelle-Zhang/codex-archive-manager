@@ -40,7 +40,7 @@ All data stays local. The app does not upload archives, database contents, proje
 
 ## Delete Behavior
 
-Use `彻底移除` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
+Use `删除归档` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
 
 This only changes Codex archive/session metadata. It does not modify files inside your project directories.
 
@@ -50,7 +50,7 @@ Use `回看` to preview the archived user/assistant conversation, see the record
 
 ## Safety Notes
 
-- This tool edits local Codex metadata only when you choose `彻底移除`.
+- This tool edits local Codex metadata only when you choose `删除归档`.
 - Codex may also keep lower-level logs such as `logs_2.sqlite`; this tool intentionally does not edit those logs.
 - Back up your Codex data before using destructive actions on important sessions.
 - Do not commit your real `~/.codex` data, `.jsonl` archives, or SQLite databases.

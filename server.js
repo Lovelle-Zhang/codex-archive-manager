@@ -1055,7 +1055,7 @@ const page = String.raw`<!doctype html>
           + '<div class="row-side"><strong>记录文件</strong><span class="row-file">' + escapeHtml(item.fileName || item.file) + '</span></div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">回看</button>'
-          + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">彻底移除</button>'
+          + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">删除归档</button>'
           + '</div>'
           + '</article>';
       }).join('');
@@ -1074,16 +1074,16 @@ const page = String.raw`<!doctype html>
     function askDelete(item) {
       pendingDelete = { id: item.id, mode: 'index' };
       const confirmTitle = document.querySelector('#confirmTitle');
-      confirmTitle.textContent = '从归档里彻底移除？';
-      confirmDelete.textContent = '确认彻底移除';
+      confirmTitle.textContent = '删除这条归档？';
+      confirmDelete.textContent = '确认删除归档';
       const notes = [
-        ['✓', '只处理 Codex 的归档对话记录，不会改动项目目录里的任何文件。'],
-        ['✓', '会删除这份归档对话日志文件。'],
-        ['✓', '会把这条记录也从 Codex 的归档列表里移除。']
+        ['✓', '删除这条历史对话的归档文件。'],
+        ['✓', '同时从 Codex 的归档列表中移除这一项。'],
+        ['✓', '不会改动这个对话曾经使用过的项目文件。']
       ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
-        + '<span class="delete-title">归档名称<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">要删除的归档<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
         + '</span>'
@@ -1155,12 +1155,12 @@ const page = String.raw`<!doctype html>
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
         await load();
-        showToast('已彻底移除归档记录');
+        showToast('已删除归档');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
         confirmDelete.disabled = false;
-        confirmDelete.textContent = '确认彻底移除';
+        confirmDelete.textContent = '确认删除归档';
         pendingDelete = null;
       }
     }
@@ -1212,7 +1212,7 @@ const server = http.createServer(async (req, res) => {
     const deleteMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)$/);
     if (req.method === 'DELETE' && deleteMatch) {
       const body = JSON.parse((await readBody(req)) || '{}');
-      return json(res, 200, deleteArchive(deleteMatch[1], body.mode || 'file'));
+      return json(res, 200, deleteArchive(deleteMatch[1], body.mode || 'index'));
     }
     text(res, 404, 'Not found');
   } catch (err) {
