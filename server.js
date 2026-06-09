@@ -1046,7 +1046,6 @@ const page = String.raw`<!doctype html>
       }
       rows.innerHTML = items.map(item => {
         const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">文件已不在归档夹</span>';
-        const fileButtonDisabled = item.exists ? '' : 'disabled';
         const kind = archiveKind(item);
         const badgeClass = kind === '自动化' ? 'badge auto' : kind === '索引残留' ? 'badge missing' : 'badge';
         return ''
@@ -1058,7 +1057,6 @@ const page = String.raw`<!doctype html>
           + '<div class="row-side"><strong>记录文件</strong><span class="row-file">' + escapeHtml(item.fileName || item.file) + '</span></div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">回看</button>'
-          + '<button data-action="file" data-id="' + escapeHtml(item.id) + '" class="ghost" ' + fileButtonDisabled + '>删除文件</button>'
           + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">彻底移除</button>'
           + '</div>'
           + '</article>';
@@ -1075,22 +1073,16 @@ const page = String.raw`<!doctype html>
       render();
     }
 
-    function askDelete(item, mode) {
-      pendingDelete = { id: item.id, mode };
+    function askDelete(item) {
+      pendingDelete = { id: item.id, mode: 'index' };
       const confirmTitle = document.querySelector('#confirmTitle');
-      confirmTitle.textContent = mode === 'file' ? '只删除这份对话日志？' : '从归档里彻底移除？';
-      confirmDelete.textContent = mode === 'file' ? '确认删除文件' : '确认彻底移除';
-      const notes = mode === 'file'
-        ? [
-            ['✓', '不会删除你的项目代码、文件夹或应用。'],
-            ['✓', '会删除这份归档对话日志文件。'],
-            ['!', 'Codex 的归档列表里可能还会留下一个找不到文件的记录。']
-          ]
-        : [
-            ['✓', '不会删除你的项目代码、文件夹或应用。'],
-            ['✓', '会删除这份归档对话日志文件。'],
-            ['✓', '会把这条记录也从 Codex 的归档列表里移除。']
-          ];
+      confirmTitle.textContent = '从归档里彻底移除？';
+      confirmDelete.textContent = '确认彻底移除';
+      const notes = [
+        ['✓', '不会删除你的项目代码、文件夹或应用。'],
+        ['✓', '会删除这份归档对话日志文件。'],
+        ['✓', '会把这条记录也从 Codex 的归档列表里移除。']
+      ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
         + '<span class="delete-title">归档名称<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
@@ -1165,12 +1157,12 @@ const page = String.raw`<!doctype html>
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
         await load();
-        showToast(pendingDelete.mode === 'index' ? '已彻底移除归档记录' : '已删除归档文件');
+        showToast('已彻底移除归档记录');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
         confirmDelete.disabled = false;
-        confirmDelete.textContent = '确认删除';
+        confirmDelete.textContent = '确认彻底移除';
         pendingDelete = null;
       }
     }
@@ -1188,7 +1180,7 @@ const page = String.raw`<!doctype html>
       const item = archives.find(entry => entry.id === button.dataset.id);
       if (!item) return;
       if (button.dataset.action === 'view') showDetails(item);
-      else askDelete(item, button.dataset.action);
+      else askDelete(item);
     });
 
     load().catch(err => {

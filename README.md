@@ -10,7 +10,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 - Searches and filters normal conversations, automation runs, and stale index entries.
 - Previews archived user/assistant conversations with `回看`.
 - Opens the recorded project folder when it still exists locally.
-- Removes archived session files, with an optional deeper cleanup of the local Codex thread index.
+- Removes archived session files and the matching local Codex thread index record.
 
 ## Run
 
@@ -38,12 +38,11 @@ http://127.0.0.1:8787/?mode=sidebar
 
 All data stays local. The app does not upload archives, database contents, project paths, or conversations.
 
-## Delete Modes
+## Delete Behavior
 
-- `删除文件`: removes the archived `.jsonl` session file.
-- `彻底移除`: removes the `.jsonl` file and deletes the matching local Codex thread index row.
+Use `彻底移除` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
 
-Neither mode deletes your project source code or project folders.
+This does not delete your project source code, project folders, or apps.
 
 ## Review Archives
 
