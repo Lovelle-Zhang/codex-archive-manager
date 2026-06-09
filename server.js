@@ -1079,7 +1079,7 @@ const page = String.raw`<!doctype html>
       confirmTitle.textContent = '从归档里彻底移除？';
       confirmDelete.textContent = '确认彻底移除';
       const notes = [
-        ['✓', '不会删除你的项目代码、文件夹或应用。'],
+        ['✓', '只处理 Codex 的归档对话记录，不会改动项目目录里的任何文件。'],
         ['✓', '会删除这份归档对话日志文件。'],
         ['✓', '会把这条记录也从 Codex 的归档列表里移除。']
       ];

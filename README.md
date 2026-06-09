@@ -42,7 +42,7 @@ All data stays local. The app does not upload archives, database contents, proje
 
 Use `彻底移除` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
 
-This does not delete your project source code, project folders, or apps.
+This only changes Codex archive/session metadata. It does not modify files inside your project directories.
 
 ## Review Archives
 
