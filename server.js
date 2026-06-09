@@ -168,6 +168,7 @@ function getArchives() {
       exists: true,
       inDatabase: Boolean(row),
       archivedFlag: Boolean(row?.archived),
+      status: 'archived',
     };
   });
 
@@ -188,10 +189,35 @@ function getArchives() {
         exists: false,
         inDatabase: true,
         archivedFlag: true,
+        status: 'archived',
       };
     });
 
-  return [...fileEntries, ...archivedRowsWithoutFile]
+  const currentRows = rows
+    .filter(row => !row.archived)
+    .map(row => {
+      const sessionName = sessionNames.get(row.id);
+      const file = row.rollout_path || '';
+      const exists = Boolean(file && fs.existsSync(file));
+      const stat = exists ? fs.statSync(file) : null;
+      return {
+        id: row.id,
+        title: compactTitle(row, row.id, sessionName),
+        aliases: archiveAliases(row, sessionName),
+        rolloutTime: '',
+        updatedAt: localTime(row.updated_at),
+        archivedAt: '',
+        sizeKB: stat ? Math.round(stat.size / 1024) : 0,
+        file,
+        fileName: path.basename(file || ''),
+        exists,
+        inDatabase: true,
+        archivedFlag: false,
+        status: 'current',
+      };
+    });
+
+  return [...fileEntries, ...archivedRowsWithoutFile, ...currentRows]
     .sort((a, b) => (b.rolloutTime || b.updatedAt).localeCompare(a.rolloutTime || a.updatedAt));
 }
 
@@ -295,7 +321,7 @@ function deleteArchive(id, mode) {
   if (!id || !/^019e[0-9a-f-]+$/.test(id)) throw new Error('Invalid archive id');
   if (!['file', 'index'].includes(mode)) throw new Error('Invalid delete mode');
 
-  const entries = getArchives().filter(entry => entry.id === id);
+  const entries = getArchives().filter(entry => entry.id === id && entry.status !== 'current');
   if (!entries.length) throw new Error('Archive was not found');
 
   const result = {
@@ -468,7 +494,7 @@ const page = String.raw`<!doctype html>
     }
     .controls {
       display: grid;
-      grid-template-columns: minmax(240px, 1fr) 150px auto auto;
+      grid-template-columns: minmax(240px, 1fr) 160px 150px auto auto;
       gap: 12px;
       align-items: center;
       padding: 14px;
@@ -682,6 +708,12 @@ const page = String.raw`<!doctype html>
       color: var(--warning);
       background: var(--warning-bg);
       border-color: #f2d58d;
+    }
+    .status-badge {
+      color: #3d454b;
+      background: #eef0ec;
+      border-color: var(--line-strong);
+      font-weight: 650;
     }
     .path {
       color: var(--muted);
@@ -993,9 +1025,15 @@ const page = String.raw`<!doctype html>
       <div class="controls">
         <label class="sr-only" for="q">Search</label>
         <input id="q" placeholder="Search title, time, or filename">
+        <label class="sr-only" for="statusFilter">Status</label>
+        <select id="statusFilter">
+          <option value="archived">Archived sessions</option>
+          <option value="current">Current sessions</option>
+          <option value="all">All sessions</option>
+        </select>
         <label class="sr-only" for="filter">Filter</label>
         <select id="filter">
-          <option value="all">All archives</option>
+          <option value="all">All types</option>
           <option value="normal">Conversations</option>
           <option value="automation">Automation runs</option>
         </select>
@@ -1043,6 +1081,7 @@ const page = String.raw`<!doctype html>
     let pendingDelete = null;
     const rows = document.querySelector('#rows');
     const q = document.querySelector('#q');
+    const statusFilter = document.querySelector('#statusFilter');
     const filter = document.querySelector('#filter');
     const meta = document.querySelector('#meta');
     const dialog = document.querySelector('#confirm');
@@ -1075,7 +1114,8 @@ const page = String.raw`<!doctype html>
           fileName: 'rollout-2026-06-09T16-42-18-demo-archive-1.jsonl',
           file: 'rollout-2026-06-09T16-42-18-demo-archive-1.jsonl',
           exists: true,
-          sizeKB: 84
+          sizeKB: 84,
+          status: 'archived'
         },
         {
           id: 'demo-archive-2',
@@ -1086,7 +1126,8 @@ const page = String.raw`<!doctype html>
           fileName: 'rollout-2026-06-09T15-30-04-demo-archive-2.jsonl',
           file: 'rollout-2026-06-09T15-30-04-demo-archive-2.jsonl',
           exists: true,
-          sizeKB: 131
+          sizeKB: 131,
+          status: 'archived'
         },
         {
           id: 'demo-archive-3',
@@ -1097,7 +1138,20 @@ const page = String.raw`<!doctype html>
           fileName: 'rollout-2026-06-08T22-18-36-demo-archive-3.jsonl',
           file: 'rollout-2026-06-08T22-18-36-demo-archive-3.jsonl',
           exists: true,
-          sizeKB: 57
+          sizeKB: 57,
+          status: 'archived'
+        },
+        {
+          id: 'demo-current-1',
+          title: 'EyeFlow1.3',
+          rolloutTime: '',
+          archivedAt: '',
+          updatedAt: '2026-06-09 18:49:41',
+          fileName: 'rollout-2026-06-09T18-21-47-demo-current-1.jsonl',
+          file: 'rollout-2026-06-09T18-21-47-demo-current-1.jsonl',
+          exists: true,
+          sizeKB: 96,
+          status: 'current'
         }
       ];
     }
@@ -1106,6 +1160,10 @@ const page = String.raw`<!doctype html>
       if (!item.exists) return 'Missing file';
       if (item.title.startsWith('Automation:')) return 'Automation';
       return 'Conversation';
+    }
+
+    function statusLabel(item) {
+      return item.status === 'current' ? 'Current' : 'Archived';
     }
 
     function showToast(message) {
@@ -1118,6 +1176,8 @@ const page = String.raw`<!doctype html>
     function visibleItems() {
       const term = q.value.trim().toLowerCase();
       return archives.filter(item => {
+        if (statusFilter.value === 'archived' && item.status === 'current') return false;
+        if (statusFilter.value === 'current' && item.status !== 'current') return false;
         if (filter.value === 'normal' && item.title.startsWith('Automation:')) return false;
         if (filter.value === 'automation' && !item.title.startsWith('Automation:')) return false;
         if (!term) return true;
@@ -1139,16 +1199,21 @@ const page = String.raw`<!doctype html>
         const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">File is missing from the archive folder</span>';
         const kind = archiveKind(item);
         const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
+        const deleteButton = item.status === 'current'
+          ? ''
+          : '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>';
+        const dateLabel = item.status === 'current' ? 'Updated ' : 'Archived ';
+        const dateValue = item.status === 'current' ? (item.updatedAt || 'Unknown') : (item.archivedAt || 'Unknown');
         return ''
           + '<article class="archive-row">'
           + '<div class="row-main">'
-          + '<div class="row-topline"><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
-          + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>Archived ' + escapeHtml(item.archivedAt || 'Unknown') + '</span><span>' + size + '</span></div>'
+          + '<div class="row-topline"><span class="badge status-badge">' + escapeHtml(statusLabel(item)) + '</span><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
+          + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>' + dateLabel + escapeHtml(dateValue) + '</span><span>' + size + '</span></div>'
           + '</div>'
-          + '<div class="row-side"><strong>Archive file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file) + '</span></div>'
+          + '<div class="row-side"><strong>Record file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
-          + '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>'
+          + deleteButton
           + '</div>'
           + '</article>';
       }).join('');
@@ -1289,6 +1354,7 @@ const page = String.raw`<!doctype html>
     openProject.addEventListener('click', openCurrentProject);
     confirmDelete.addEventListener('click', doDelete);
     q.addEventListener('input', render);
+    statusFilter.addEventListener('change', render);
     filter.addEventListener('change', render);
     rows.addEventListener('click', event => {
       const button = event.target.closest('button[data-action]');

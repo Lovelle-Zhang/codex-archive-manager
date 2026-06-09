@@ -8,7 +8,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 
 ## What It Does
 
-- Lists archived Codex sessions with readable titles and timestamps.
+- Lists archived and current Codex sessions with readable titles and timestamps.
 - Searches and filters normal conversations and automation runs.
 - Previews archived user/assistant conversations with `Preview`.
 - Opens the recorded project folder when it still exists locally.
@@ -41,6 +41,7 @@ http://127.0.0.1:8787/?demo=1
 ## What It Reads
 
 - `~/.codex/archived_sessions`
+- `~/.codex/sessions`
 - `~/.codex/state_5.sqlite`
 - `~/.codex/session_index.jsonl`
 
@@ -48,9 +49,11 @@ All data stays local. The app does not upload archives, database contents, proje
 
 ## Delete Behavior
 
-Use `Delete archive` to remove the archived `.jsonl` session file and delete the matching local Codex thread index row.
+Use `Delete archive` to remove an archived `.jsonl` session file and delete the matching local Codex thread index row.
 
 This only changes Codex archive/session metadata. It does not modify files inside your project directories.
+
+Current sessions can be previewed, but they cannot be deleted from this tool.
 
 ## Review Archives
 
