@@ -74,15 +74,59 @@ function localTime(seconds) {
   });
 }
 
-function compactTitle(row, id) {
+function compactOneLine(value, maxLength = 120) {
+  const oneLine = String(value || '').replace(/\s+/g, ' ').trim();
+  return oneLine.length > maxLength ? `${oneLine.slice(0, maxLength - 3)}...` : oneLine;
+}
+
+function readSessionNames() {
+  const names = new Map();
+  if (!fs.existsSync(SESSION_INDEX)) return names;
+
+  const lines = fs.readFileSync(SESSION_INDEX, 'utf8').split(/\n/).filter(Boolean);
+  for (const line of lines) {
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!record?.id || !/^019e[0-9a-f-]+$/.test(record.id)) continue;
+    const name = compactOneLine(record.thread_name);
+    if (!name) continue;
+
+    const updatedAt = Date.parse(record.updated_at || '') || 0;
+    const existing = names.get(record.id) || { name: '', updatedAt: 0, aliases: [] };
+    if (!existing.aliases.includes(name)) existing.aliases.push(name);
+    if (!existing.name || updatedAt >= existing.updatedAt) {
+      existing.name = name;
+      existing.updatedAt = updatedAt;
+    }
+    names.set(record.id, existing);
+  }
+
+  return names;
+}
+
+function compactTitle(row, id, sessionName) {
+  if (sessionName?.name) return sessionName.name;
   const raw = String(row?.title || row?.first_user_message || row?.preview || '').trim();
   if (!raw) return `(Untitled: ${id})`;
-  const oneLine = raw.replace(/\s+/g, ' ').trim();
+  const oneLine = compactOneLine(raw);
   if (oneLine.startsWith('Automation:')) {
     const match = oneLine.match(/Last run: (never|[0-9TZ:.\-]+)/);
     return match ? `Automation: EyeFlow conversation rotation monitor (${match[1]})` : 'Automation: EyeFlow conversation rotation monitor';
   }
-  return oneLine.length > 120 ? `${oneLine.slice(0, 117)}...` : oneLine;
+  return oneLine;
+}
+
+function archiveAliases(row, sessionName) {
+  const aliases = sessionName?.aliases ? [...sessionName.aliases] : [];
+  for (const value of [row?.title, row?.first_user_message, row?.preview]) {
+    const alias = compactOneLine(value);
+    if (alias && !aliases.includes(alias)) aliases.push(alias);
+  }
+  return aliases;
 }
 
 function getThreadRow(id) {
@@ -99,6 +143,7 @@ function getArchives() {
     select id,title,created_at,updated_at,archived_at,rollout_path,first_user_message,preview,archived
     from threads
   `);
+  const sessionNames = readSessionNames();
   const byId = new Map(rows.map(row => [row.id, row]));
   const files = fs.existsSync(ARCHIVE_DIR)
     ? fs.readdirSync(ARCHIVE_DIR).filter(name => name.endsWith('.jsonl'))
@@ -109,9 +154,11 @@ function getArchives() {
     const file = path.join(ARCHIVE_DIR, name);
     const stat = fs.statSync(file);
     const row = byId.get(id);
+    const sessionName = sessionNames.get(id);
     return {
       id,
-      title: compactTitle(row, id),
+      title: compactTitle(row, id, sessionName),
+      aliases: archiveAliases(row, sessionName),
       rolloutTime: rolloutTimeFromName(name),
       updatedAt: localTime(row?.updated_at),
       archivedAt: localTime(row?.archived_at),
@@ -126,19 +173,23 @@ function getArchives() {
 
   const archivedRowsWithoutFile = rows
     .filter(row => row.archived && !fileEntries.some(entry => entry.id === row.id))
-    .map(row => ({
-      id: row.id,
-      title: compactTitle(row, row.id),
-      rolloutTime: '',
-      updatedAt: localTime(row.updated_at),
-      archivedAt: localTime(row.archived_at),
-      sizeKB: 0,
-      file: row.rollout_path,
-      fileName: path.basename(row.rollout_path || ''),
-      exists: false,
-      inDatabase: true,
-      archivedFlag: true,
-    }));
+    .map(row => {
+      const sessionName = sessionNames.get(row.id);
+      return {
+        id: row.id,
+        title: compactTitle(row, row.id, sessionName),
+        aliases: archiveAliases(row, sessionName),
+        rolloutTime: '',
+        updatedAt: localTime(row.updated_at),
+        archivedAt: localTime(row.archived_at),
+        sizeKB: 0,
+        file: row.rollout_path,
+        fileName: path.basename(row.rollout_path || ''),
+        exists: false,
+        inDatabase: true,
+        archivedFlag: true,
+      };
+    });
 
   return [...fileEntries, ...archivedRowsWithoutFile]
     .sort((a, b) => (b.rolloutTime || b.updatedAt).localeCompare(a.rolloutTime || a.updatedAt));
@@ -201,7 +252,7 @@ function archiveDetails(id) {
   const cwd = row?.cwd || meta.cwd || '';
   return {
     id,
-    title: compactTitle(row, id),
+    title: compactTitle(row, id, readSessionNames().get(id)),
     cwd,
     projectExists: Boolean(cwd && fs.existsSync(cwd)),
     rolloutPath: file || row?.rollout_path || '',
@@ -275,7 +326,7 @@ function deleteArchive(id, mode) {
 }
 
 const page = String.raw`<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1070,7 +1121,7 @@ const page = String.raw`<!doctype html>
         if (filter.value === 'normal' && item.title.startsWith('Automation:')) return false;
         if (filter.value === 'automation' && !item.title.startsWith('Automation:')) return false;
         if (!term) return true;
-        return [item.title, item.rolloutTime, item.archivedAt, item.fileName, item.id]
+        return [item.title, ...(item.aliases || []), item.rolloutTime, item.archivedAt, item.fileName, item.id]
           .join(' ')
           .toLowerCase()
           .includes(term);
