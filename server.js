@@ -8,6 +8,7 @@ const os = require('node:os');
 const CODEX_HOME = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 const STATE_DB = path.join(CODEX_HOME, 'state_5.sqlite');
 const ARCHIVE_DIR = path.join(CODEX_HOME, 'archived_sessions');
+const SESSIONS_DIR = path.join(CODEX_HOME, 'sessions');
 const SESSION_INDEX = path.join(CODEX_HOME, 'session_index.jsonl');
 const PORT = Number(process.env.PORT || 8787);
 
@@ -55,6 +56,11 @@ function sqliteRun(sql) {
 
 function sqlQuote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function isInsideDir(base, target) {
+  const relative = path.relative(base, target);
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
 function idFromArchiveName(name) {
@@ -336,7 +342,9 @@ function removeFromSessionIndex(id) {
 
 function deleteArchive(id, mode) {
   if (!id || !/^019e[0-9a-f-]+$/.test(id)) throw new Error('Invalid archive id');
-  if (!['file', 'index'].includes(mode)) throw new Error('Invalid delete mode');
+  if (!['file', 'index', 'local-record'].includes(mode)) throw new Error('Invalid delete mode');
+
+  if (mode === 'local-record') return deleteLocalRecord(id);
 
   const entries = getArchives().filter(entry => entry.id === id && entry.status !== 'current');
   if (!entries.length) throw new Error('Archive was not found');
@@ -365,6 +373,32 @@ function deleteArchive(id, mode) {
     result.removedSessionIndexLines = removeFromSessionIndex(id);
   }
 
+  return result;
+}
+
+function deleteLocalRecord(id) {
+  const entry = getArchives().find(item => item.id === id && item.status === 'unlisted');
+  if (!entry) throw new Error('Local record was not found');
+
+  const result = {
+    id,
+    mode: 'local-record',
+    removedFiles: [],
+    removedDatabaseRow: false,
+    removedSessionIndexLines: false,
+  };
+
+  if (entry.exists && entry.file) {
+    if (!isInsideDir(SESSIONS_DIR, entry.file)) {
+      throw new Error(`Refusing to delete outside Codex sessions dir: ${entry.file}`);
+    }
+    fs.unlinkSync(entry.file);
+    result.removedFiles.push(entry.file);
+  }
+
+  sqliteRun(`delete from threads where id = ${sqlQuote(id)};`);
+  result.removedDatabaseRow = true;
+  result.removedSessionIndexLines = removeFromSessionIndex(id);
   return result;
 }
 
@@ -1239,9 +1273,11 @@ const page = String.raw`<!doctype html>
         const kind = archiveKind(item);
         const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
         const statusClass = item.status === 'unlisted' ? 'badge status-badge unlisted' : 'badge status-badge';
-        const deleteButton = item.status !== 'archived'
-          ? ''
-          : '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>';
+        const deleteButton = item.status === 'archived'
+          ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>'
+          : item.status === 'unlisted'
+            ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger">Delete local record</button>'
+            : '';
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '">Reveal file</button>'
           : '';
@@ -1280,18 +1316,25 @@ const page = String.raw`<!doctype html>
     }
 
     function askDelete(item) {
-      pendingDelete = { id: item.id, mode: 'index' };
+      const isLocalRecord = item.status === 'unlisted';
+      pendingDelete = { id: item.id, mode: isLocalRecord ? 'local-record' : 'index' };
       const confirmTitle = document.querySelector('#confirmTitle');
-      confirmTitle.textContent = 'Delete this archive?';
-      confirmDelete.textContent = 'Delete archive';
-      const notes = [
-        ['✓', 'Deletes the archived conversation file.'],
-        ['✓', 'Removes this item from the Codex archive list.'],
-        ['✓', 'Does not modify any files in the project used by this conversation.']
-      ];
+      confirmTitle.textContent = isLocalRecord ? 'Delete this local record?' : 'Delete this archive?';
+      confirmDelete.textContent = isLocalRecord ? 'Delete local record' : 'Delete archive';
+      const notes = isLocalRecord
+        ? [
+            ['✓', 'Deletes this local Codex session file.'],
+            ['✓', 'Removes this local record from the Codex database.'],
+            ['✓', 'Does not modify any files in the project used by this conversation.']
+          ]
+        : [
+            ['✓', 'Deletes the archived conversation file.'],
+            ['✓', 'Removes this item from the Codex archive list.'],
+            ['✓', 'Does not modify any files in the project used by this conversation.']
+          ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
-        + '<span class="delete-title">Archive to delete<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">' + (isLocalRecord ? 'Local record to delete' : 'Archive to delete') + '<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
         + '<span class="delete-title">Record file<span class="delete-name">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
@@ -1380,6 +1423,7 @@ const page = String.raw`<!doctype html>
 
     async function doDelete() {
       if (!pendingDelete) return;
+      const deleteMode = pendingDelete.mode;
       if (demoMode) {
         dialog.close();
         showToast('Demo mode does not delete files');
@@ -1397,12 +1441,12 @@ const page = String.raw`<!doctype html>
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
         await load();
-        showToast('Archive deleted');
+        showToast(deleteMode === 'local-record' ? 'Local record deleted' : 'Archive deleted');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
         confirmDelete.disabled = false;
-        confirmDelete.textContent = 'Delete archive';
+        confirmDelete.textContent = deleteMode === 'local-record' ? 'Delete local record' : 'Delete archive';
         pendingDelete = null;
       }
     }
