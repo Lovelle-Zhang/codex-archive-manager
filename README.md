@@ -13,6 +13,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 - Previews archived user/assistant conversations with `Preview`.
 - Opens the recorded project folder when it still exists locally.
 - Reveals the underlying record file in the system file manager.
+- Restores archived sessions back to the Codex sidebar.
 - Removes archived session files and the matching local Codex thread index record.
 
 ## Run
@@ -60,6 +61,12 @@ Current sessions can be previewed, but they cannot be deleted from this tool.
 
 Rows marked `Not in sidebar` are local Codex session records that still exist on disk, but are not present in Codex's sidebar index. They can be previewed, revealed, or deleted as local records.
 
+## Restore Behavior
+
+Use `Restore` to move an archived session back to the Codex sidebar. The app copies the `.jsonl` file from `~/.codex/archived_sessions` back into `~/.codex/sessions/YYYY/MM/DD/`, marks the thread as not archived in `state_5.sqlite`, and appends a sidebar entry to `session_index.jsonl`.
+
+Before restoring, the app creates a local backup under `~/.codex/archive-manager-backups/`.
+
 ## Review Archives
 
 Use `Preview` to inspect the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
@@ -71,6 +78,7 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 - Codex Desktop local storage is not a public stable API, so future Codex releases may change these paths or schemas.
 - The tool does not edit lower-level Codex logs such as `logs_2.sqlite`.
 - Current sessions can be inspected, but only archived and `Not in sidebar` records can be deleted.
+- Restore relies on Codex's current local sidebar index format and may need updates if Codex changes it.
 - File reveal uses the host OS file manager and is best tested on macOS.
 
 ## Safety Notes

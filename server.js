@@ -10,6 +10,7 @@ const STATE_DB = path.join(CODEX_HOME, 'state_5.sqlite');
 const ARCHIVE_DIR = path.join(CODEX_HOME, 'archived_sessions');
 const SESSIONS_DIR = path.join(CODEX_HOME, 'sessions');
 const SESSION_INDEX = path.join(CODEX_HOME, 'session_index.jsonl');
+const BACKUP_DIR = path.join(CODEX_HOME, 'archive-manager-backups');
 const PORT = Number(process.env.PORT || 8787);
 
 function json(res, status, body) {
@@ -73,6 +74,12 @@ function rolloutTimeFromName(name) {
   return match ? `${match[1]} ${match[2]}:${match[3]}:${match[4]}` : '';
 }
 
+function sessionPathFromArchiveName(name) {
+  const match = name.match(/^rollout-(\d{4})-(\d{2})-(\d{2})T/);
+  if (!match) throw new Error(`Cannot infer session date from archive filename: ${name}`);
+  return path.join(SESSIONS_DIR, match[1], match[2], match[3], name);
+}
+
 function localTime(seconds) {
   if (!seconds) return '';
   return new Date(seconds * 1000).toLocaleString('en-US', {
@@ -102,9 +109,13 @@ function readSessionNames() {
 
     const updatedAt = Date.parse(record.updated_at || '') || 0;
     const existing = names.get(record.id) || { name: '', updatedAt: 0, aliases: [] };
-    if (name && !existing.aliases.includes(name)) existing.aliases.push(name);
-    if (!existing.name || updatedAt >= existing.updatedAt) {
+    if (name && !existing.aliases.includes(name)) {
+      existing.aliases.push(name);
+    }
+    if (name && (!existing.name || updatedAt >= existing.updatedAt)) {
       existing.name = name;
+      existing.updatedAt = updatedAt;
+    } else if (updatedAt > existing.updatedAt) {
       existing.updatedAt = updatedAt;
     }
     names.set(record.id, existing);
@@ -338,6 +349,77 @@ function removeFromSessionIndex(id) {
     return true;
   }
   return false;
+}
+
+function appendToSessionIndex(id, threadName, updatedAt) {
+  const removedExisting = removeFromSessionIndex(id);
+  const record = {
+    id,
+    thread_name: compactOneLine(threadName, 160) || `(Untitled: ${id})`,
+    updated_at: new Date(Number(updatedAt || 0) * 1000).toISOString(),
+  };
+  fs.appendFileSync(SESSION_INDEX, `${JSON.stringify(record)}\n`, 'utf8');
+  return removedExisting;
+}
+
+function createRestoreBackups(id, archiveFile) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dir = path.join(BACKUP_DIR, `${stamp}-${id}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const backups = [];
+
+  if (fs.existsSync(STATE_DB)) {
+    const target = path.join(dir, 'state_5.sqlite');
+    fs.copyFileSync(STATE_DB, target);
+    backups.push(target);
+  }
+  if (fs.existsSync(SESSION_INDEX)) {
+    const target = path.join(dir, 'session_index.jsonl');
+    fs.copyFileSync(SESSION_INDEX, target);
+    backups.push(target);
+  }
+  if (archiveFile && fs.existsSync(archiveFile)) {
+    const target = path.join(dir, path.basename(archiveFile));
+    fs.copyFileSync(archiveFile, target);
+    backups.push(target);
+  }
+
+  return { dir, backups };
+}
+
+function restoreArchive(id) {
+  if (!id || !/^019e[0-9a-f-]+$/.test(id)) throw new Error('Invalid archive id');
+
+  const entry = getArchives().find(item => item.id === id && item.status === 'archived' && item.exists);
+  if (!entry) throw new Error('Archived session file was not found');
+  if (path.dirname(entry.file) !== ARCHIVE_DIR) throw new Error(`Refusing to restore outside archive dir: ${entry.file}`);
+
+  const row = getThreadRow(id);
+  if (!row) throw new Error('Codex database row was not found for this archive');
+
+  const destination = sessionPathFromArchiveName(entry.fileName);
+  if (fs.existsSync(destination)) throw new Error(`A session file already exists at ${destination}`);
+
+  const backup = createRestoreBackups(id, entry.file);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.copyFileSync(entry.file, destination, fs.constants.COPYFILE_EXCL);
+
+  sqliteRun(`
+    update threads
+    set archived = 0,
+        archived_at = null,
+        rollout_path = ${sqlQuote(destination)}
+    where id = ${sqlQuote(id)};
+  `);
+  appendToSessionIndex(id, compactTitle(row, id, readSessionNames().get(id)), row.updated_at);
+  fs.unlinkSync(entry.file);
+
+  return {
+    id,
+    restored: true,
+    destination,
+    backupDir: backup.dir,
+  };
 }
 
 function deleteArchive(id, mode) {
@@ -1135,7 +1217,7 @@ const page = String.raw`<!doctype html>
     }
 
     let archives = [];
-    let pendingDelete = null;
+    let pendingAction = null;
     const rows = document.querySelector('#rows');
     const q = document.querySelector('#q');
     const statusFilter = document.querySelector('#statusFilter');
@@ -1278,6 +1360,9 @@ const page = String.raw`<!doctype html>
           : item.status === 'unlisted'
             ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger">Delete local record</button>'
             : '';
+        const restoreButton = item.status === 'archived' && item.exists
+          ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost">Restore</button>'
+          : '';
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '">Reveal file</button>'
           : '';
@@ -1293,6 +1378,7 @@ const page = String.raw`<!doctype html>
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
           + revealButton
+          + restoreButton
           + deleteButton
           + '</div>'
           + '</article>';
@@ -1317,10 +1403,11 @@ const page = String.raw`<!doctype html>
 
     function askDelete(item) {
       const isLocalRecord = item.status === 'unlisted';
-      pendingDelete = { id: item.id, mode: isLocalRecord ? 'local-record' : 'index' };
+      pendingAction = { type: 'delete', id: item.id, mode: isLocalRecord ? 'local-record' : 'index' };
       const confirmTitle = document.querySelector('#confirmTitle');
       confirmTitle.textContent = isLocalRecord ? 'Delete this local record?' : 'Delete this archive?';
       confirmDelete.textContent = isLocalRecord ? 'Delete local record' : 'Delete archive';
+      confirmDelete.className = 'danger';
       const notes = isLocalRecord
         ? [
             ['✓', 'Deletes this local Codex session file.'],
@@ -1336,6 +1423,29 @@ const page = String.raw`<!doctype html>
         + '<span class="delete-summary">'
         + '<span class="delete-title">' + (isLocalRecord ? 'Local record to delete' : 'Archive to delete') + '<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
         + '<span class="delete-title">Record file<span class="delete-name">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></span>'
+        + '<span class="delete-note">'
+        + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
+        + '</span>'
+        + '</span>';
+      dialog.showModal();
+    }
+
+    function askRestore(item) {
+      pendingAction = { type: 'restore', id: item.id };
+      const confirmTitle = document.querySelector('#confirmTitle');
+      confirmTitle.textContent = 'Restore this session?';
+      confirmDelete.textContent = 'Restore';
+      confirmDelete.className = 'primary';
+      const notes = [
+        ['✓', 'Moves this session back to the Codex sidebar index.'],
+        ['✓', 'Copies the record file back into the Codex sessions folder.'],
+        ['✓', 'Creates a local backup before changing Codex metadata.'],
+        ['✓', 'Does not modify any files in the project used by this conversation.']
+      ];
+      confirmBody.innerHTML = ''
+        + '<span class="delete-summary">'
+        + '<span class="delete-title">Session to restore<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">Archive file<span class="delete-name">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
         + '</span>'
@@ -1421,41 +1531,53 @@ const page = String.raw`<!doctype html>
       }
     }
 
-    async function doDelete() {
-      if (!pendingDelete) return;
-      const deleteMode = pendingDelete.mode;
+    async function runPendingAction() {
+      if (!pendingAction) return;
+      const action = pendingAction;
       if (demoMode) {
         dialog.close();
-        showToast('Demo mode does not delete files');
-        pendingDelete = null;
+        showToast(action.type === 'restore' ? 'Demo mode does not restore sessions' : 'Demo mode does not delete files');
+        pendingAction = null;
         return;
       }
       confirmDelete.disabled = true;
-      confirmDelete.textContent = 'Deleting';
+      confirmDelete.textContent = action.type === 'restore' ? 'Restoring' : 'Deleting';
       try {
-        const res = await fetch('/api/archives/' + pendingDelete.id, {
-          method: 'DELETE',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ mode: pendingDelete.mode }),
-        });
+        const res = action.type === 'restore'
+          ? await fetch('/api/archives/' + action.id + '/restore', { method: 'POST' })
+          : await fetch('/api/archives/' + action.id, {
+              method: 'DELETE',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ mode: action.mode }),
+            });
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
         await load();
-        showToast(deleteMode === 'local-record' ? 'Local record deleted' : 'Archive deleted');
+        if (action.type === 'restore') showToast('Session restored to sidebar');
+        else showToast(action.mode === 'local-record' ? 'Local record deleted' : 'Archive deleted');
       } catch (err) {
         alert(err.message || String(err));
       } finally {
         confirmDelete.disabled = false;
-        confirmDelete.textContent = deleteMode === 'local-record' ? 'Delete local record' : 'Delete archive';
-        pendingDelete = null;
+        if (action.type === 'restore') {
+          confirmDelete.textContent = 'Restore';
+          confirmDelete.className = 'primary';
+        } else {
+          confirmDelete.textContent = action.mode === 'local-record' ? 'Delete local record' : 'Delete archive';
+          confirmDelete.className = 'danger';
+        }
+        pendingAction = null;
       }
     }
 
     document.querySelector('#refresh').addEventListener('click', load);
-    document.querySelector('#cancel').addEventListener('click', () => dialog.close());
+    document.querySelector('#cancel').addEventListener('click', () => {
+      pendingAction = null;
+      dialog.close();
+    });
     closeDetails.addEventListener('click', () => detailsDialog.close());
     openProject.addEventListener('click', openCurrentProject);
-    confirmDelete.addEventListener('click', doDelete);
+    confirmDelete.addEventListener('click', runPendingAction);
     q.addEventListener('input', render);
     statusFilter.addEventListener('change', render);
     filter.addEventListener('change', render);
@@ -1466,6 +1588,7 @@ const page = String.raw`<!doctype html>
       if (!item) return;
       if (button.dataset.action === 'view') showDetails(item);
       else if (button.dataset.action === 'reveal') revealCurrentFile(item.id);
+      else if (button.dataset.action === 'restore') askRestore(item);
       else askDelete(item);
     });
 
@@ -1500,6 +1623,10 @@ const server = http.createServer(async (req, res) => {
     const revealFileMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)\/reveal-file$/);
     if (req.method === 'POST' && revealFileMatch) {
       return json(res, 200, revealRecordFile(revealFileMatch[1]));
+    }
+    const restoreMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)\/restore$/);
+    if (req.method === 'POST' && restoreMatch) {
+      return json(res, 200, restoreArchive(restoreMatch[1]));
     }
     const deleteMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)$/);
     if (req.method === 'DELETE' && deleteMatch) {
