@@ -4,7 +4,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 
 > Unofficial and experimental. This project is not affiliated with OpenAI or the Codex team. It reads local Codex Desktop files whose structure may change in future Codex releases.
 
-![Codex Archive Manager screenshot](docs/screenshot.png)
+![Codex Archive Manager screenshot](docs/screenshot.jpg)
 
 ## What It Does
 
