@@ -49,20 +49,12 @@ Neither mode deletes your project source code or project folders.
 
 Use `回看` to preview the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
 
-By default, `彻底移除` creates backups in:
-
-```txt
-archive-manager-backups/
-```
-
-You can uncheck `删除前保留备份` in the confirmation dialog to remove the archive without creating a new backup. Existing backups can be removed from the UI with `清理备份`.
-
 ## Safety Notes
 
 - This tool edits local Codex metadata only when you choose `彻底移除`.
 - Codex may also keep lower-level logs such as `logs_2.sqlite`; this tool intentionally does not edit those logs.
 - Back up your Codex data before using destructive actions on important sessions.
-- Do not commit your real `~/.codex` data, `.jsonl` archives, SQLite databases, or `archive-manager-backups/`.
+- Do not commit your real `~/.codex` data, `.jsonl` archives, or SQLite databases.
 
 ## Requirements
 

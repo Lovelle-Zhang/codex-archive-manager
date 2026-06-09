@@ -10,7 +10,6 @@ const STATE_DB = path.join(CODEX_HOME, 'state_5.sqlite');
 const ARCHIVE_DIR = path.join(CODEX_HOME, 'archived_sessions');
 const SESSION_INDEX = path.join(CODEX_HOME, 'session_index.jsonl');
 const PORT = Number(process.env.PORT || 8787);
-const BACKUP_DIR = path.join(process.cwd(), 'archive-manager-backups');
 
 function json(res, status, body) {
   const text = JSON.stringify(body);
@@ -227,34 +226,6 @@ function openProject(id) {
   return { opened: true, cwd: details.cwd };
 }
 
-function backupOnce() {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  if (fs.existsSync(STATE_DB)) fs.copyFileSync(STATE_DB, path.join(BACKUP_DIR, `state_5.sqlite.${stamp}.bak`));
-  if (fs.existsSync(SESSION_INDEX)) fs.copyFileSync(SESSION_INDEX, path.join(BACKUP_DIR, `session_index.jsonl.${stamp}.bak`));
-  return BACKUP_DIR;
-}
-
-function backupStats() {
-  if (!fs.existsSync(BACKUP_DIR)) return { count: 0, sizeKB: 0, dir: BACKUP_DIR };
-  const files = fs.readdirSync(BACKUP_DIR)
-    .map(name => path.join(BACKUP_DIR, name))
-    .filter(file => fs.statSync(file).isFile());
-  const size = files.reduce((sum, file) => sum + fs.statSync(file).size, 0);
-  return { count: files.length, sizeKB: Math.round(size / 1024), dir: BACKUP_DIR };
-}
-
-function clearBackups() {
-  const stats = backupStats();
-  if (!fs.existsSync(BACKUP_DIR)) return stats;
-  for (const name of fs.readdirSync(BACKUP_DIR)) {
-    const file = path.join(BACKUP_DIR, name);
-    if (path.dirname(file) !== BACKUP_DIR) throw new Error(`Refusing to delete outside backup dir: ${file}`);
-    if (fs.statSync(file).isFile()) fs.unlinkSync(file);
-  }
-  return stats;
-}
-
 function removeFromSessionIndex(id) {
   if (!fs.existsSync(SESSION_INDEX)) return false;
   const original = fs.readFileSync(SESSION_INDEX, 'utf8');
@@ -270,7 +241,7 @@ function removeFromSessionIndex(id) {
   return false;
 }
 
-function deleteArchive(id, mode, options = {}) {
+function deleteArchive(id, mode) {
   if (!id || !/^019e[0-9a-f-]+$/.test(id)) throw new Error('Invalid archive id');
   if (!['file', 'index'].includes(mode)) throw new Error('Invalid delete mode');
 
@@ -283,14 +254,11 @@ function deleteArchive(id, mode, options = {}) {
     removedFiles: [],
     removedDatabaseRow: false,
     removedSessionIndexLines: false,
-    backupDir: '',
   };
 
   const filesToRemove = entries
     .map(entry => entry.exists ? entry.file : '')
     .filter(Boolean);
-
-  if (mode === 'index' && options.backup !== false) result.backupDir = backupOnce();
 
   for (const file of filesToRemove) {
     if (path.dirname(file) !== ARCHIVE_DIR) throw new Error(`Refusing to delete outside archive dir: ${file}`);
@@ -349,7 +317,7 @@ const page = String.raw`<!doctype html>
     .shell {
       max-width: 1240px;
       margin: 0 auto;
-      padding: 18px 24px 34px;
+      padding: 18px 24px;
     }
     .topbar {
       display: flex;
@@ -438,7 +406,7 @@ const page = String.raw`<!doctype html>
     }
     main {
       max-width: 1240px;
-      margin: -18px auto 0;
+      margin: 0 auto;
       padding: 0 24px 44px;
     }
     .workspace {
@@ -777,19 +745,6 @@ const page = String.raw`<!doctype html>
       gap: 8px;
       align-items: start;
     }
-    .backup-choice {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      color: #3f464c;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-    .backup-choice input {
-      width: 16px;
-      height: 16px;
-      margin: 0;
-    }
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -887,10 +842,10 @@ const page = String.raw`<!doctype html>
     }
     @media (max-width: 760px) {
       .shell {
-        padding: 14px 16px 28px;
+        padding: 14px 16px;
       }
       main {
-        margin-top: -14px;
+        margin-top: 0;
         padding: 0 16px 36px;
       }
       .controls {
@@ -913,7 +868,7 @@ const page = String.raw`<!doctype html>
       background: var(--panel);
     }
     body.sidebar .shell {
-      padding: 12px 12px 14px;
+      padding: 12px;
     }
     body.sidebar .topbar {
       display: grid;
@@ -932,13 +887,6 @@ const page = String.raw`<!doctype html>
     body.sidebar .pill.ok,
     body.sidebar #lastLoaded {
       display: none;
-    }
-    body.sidebar .stats {
-      margin-top: 10px;
-      gap: 6px;
-    }
-    body.sidebar .stat {
-      padding: 5px 8px;
     }
     body.sidebar main {
       margin: 0;
@@ -985,30 +933,6 @@ const page = String.raw`<!doctype html>
           <h1>Codex 归档管理器</h1>
           <div class="subtitle" id="archivePath">本地归档</div>
         </div>
-        <div class="status">
-          <span class="pill ok" id="health">本地连接</span>
-          <span class="pill" id="backupStatus">备份 0</span>
-          <button id="clearBackups" class="mini-button" disabled>清理备份</button>
-          <span class="pill" id="lastLoaded">未读取</span>
-        </div>
-      </div>
-      <div class="stats" aria-label="归档统计">
-        <div class="stat">
-          <div class="stat-label">全部归档</div>
-          <div class="stat-value" id="statAll">0</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">普通对话</div>
-          <div class="stat-value" id="statNormal">0</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">自动化记录</div>
-          <div class="stat-value" id="statAutomation">0</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">索引残留</div>
-          <div class="stat-value" id="statMissing">0</div>
-        </div>
       </div>
     </div>
   </header>
@@ -1035,10 +959,6 @@ const page = String.raw`<!doctype html>
     <div class="modal">
       <h2 id="confirmTitle">确认删除</h2>
       <p id="confirmBody"></p>
-      <label class="backup-choice" id="backupChoice">
-        <input type="checkbox" id="keepBackup" checked>
-        <span>删除前保留备份</span>
-      </label>
       <div class="modal-actions">
         <button id="cancel">取消</button>
         <button id="confirmDelete" class="danger">确认删除</button>
@@ -1076,15 +996,6 @@ const page = String.raw`<!doctype html>
     const confirmDelete = document.querySelector('#confirmDelete');
     const toast = document.querySelector('#toast');
     const archivePath = document.querySelector('#archivePath');
-    const lastLoaded = document.querySelector('#lastLoaded');
-    const statAll = document.querySelector('#statAll');
-    const statNormal = document.querySelector('#statNormal');
-    const statAutomation = document.querySelector('#statAutomation');
-    const statMissing = document.querySelector('#statMissing');
-    const backupStatus = document.querySelector('#backupStatus');
-    const clearBackups = document.querySelector('#clearBackups');
-    const keepBackup = document.querySelector('#keepBackup');
-    const backupChoice = document.querySelector('#backupChoice');
     const detailsDialog = document.querySelector('#details');
     const detailsTitle = document.querySelector('#detailsTitle');
     const detailsMeta = document.querySelector('#detailsMeta');
@@ -1110,15 +1021,6 @@ const page = String.raw`<!doctype html>
       toast.classList.add('show');
       window.clearTimeout(showToast.timer);
       showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2800);
-    }
-
-    function updateStats() {
-      const automation = archives.filter(item => item.title.startsWith('Automation:')).length;
-      const missing = archives.filter(item => !item.exists).length;
-      statAll.textContent = archives.length;
-      statAutomation.textContent = automation;
-      statMissing.textContent = missing;
-      statNormal.textContent = archives.length - automation - missing;
     }
 
     function visibleItems() {
@@ -1170,12 +1072,6 @@ const page = String.raw`<!doctype html>
       const data = await res.json();
       archives = data.archives;
       archivePath.textContent = data.archiveDir || '本地归档';
-      const backupCount = data.backups?.count || 0;
-      const backupSize = data.backups?.sizeKB || 0;
-      backupStatus.textContent = backupCount ? '备份 ' + backupCount + ' 个 · ' + backupSize + ' KB' : '备份 0';
-      clearBackups.disabled = backupCount === 0;
-      lastLoaded.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-      updateStats();
       render();
     }
 
@@ -1184,8 +1080,6 @@ const page = String.raw`<!doctype html>
       const confirmTitle = document.querySelector('#confirmTitle');
       confirmTitle.textContent = mode === 'file' ? '只删除这份对话日志？' : '从归档里彻底移除？';
       confirmDelete.textContent = mode === 'file' ? '确认删除文件' : '确认彻底移除';
-      keepBackup.checked = true;
-      backupChoice.style.display = mode === 'file' ? 'none' : 'flex';
       const notes = mode === 'file'
         ? [
             ['✓', '不会删除你的项目代码、文件夹或应用。'],
@@ -1195,8 +1089,7 @@ const page = String.raw`<!doctype html>
         : [
             ['✓', '不会删除你的项目代码、文件夹或应用。'],
             ['✓', '会删除这份归档对话日志文件。'],
-            ['✓', '会把这条记录也从 Codex 的归档列表里移除。'],
-            ['↺', '删除前会自动备份 Codex 本地索引。']
+            ['✓', '会把这条记录也从 Codex 的归档列表里移除。']
           ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
@@ -1267,7 +1160,7 @@ const page = String.raw`<!doctype html>
         const res = await fetch('/api/archives/' + pendingDelete.id, {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ mode: pendingDelete.mode, backup: pendingDelete.mode === 'index' ? keepBackup.checked : false }),
+          body: JSON.stringify({ mode: pendingDelete.mode }),
         });
         if (!res.ok) throw new Error(await res.text());
         dialog.close();
@@ -1287,18 +1180,6 @@ const page = String.raw`<!doctype html>
     closeDetails.addEventListener('click', () => detailsDialog.close());
     openProject.addEventListener('click', openCurrentProject);
     confirmDelete.addEventListener('click', doDelete);
-    clearBackups.addEventListener('click', async () => {
-      if (!confirm('清理这个工具之前创建的备份文件？这不会删除 Codex 归档记录。')) return;
-      clearBackups.disabled = true;
-      try {
-        const res = await fetch('/api/backups', { method: 'DELETE' });
-        if (!res.ok) throw new Error(await res.text());
-        await load();
-        showToast('已清理备份文件');
-      } catch (err) {
-        alert(err.message || String(err));
-      }
-    });
     q.addEventListener('input', render);
     filter.addEventListener('change', render);
     rows.addEventListener('click', event => {
@@ -1326,13 +1207,9 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         codexHome: CODEX_HOME,
         archiveDir: ARCHIVE_DIR,
-        backups: backupStats(),
         archives: getArchives(),
         generatedAt: new Date().toISOString(),
       });
-    }
-    if (req.method === 'DELETE' && url.pathname === '/api/backups') {
-      return json(res, 200, clearBackups());
     }
     const detailsMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)\/details$/);
     if (req.method === 'GET' && detailsMatch) {
@@ -1345,7 +1222,7 @@ const server = http.createServer(async (req, res) => {
     const deleteMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)$/);
     if (req.method === 'DELETE' && deleteMatch) {
       const body = JSON.parse((await readBody(req)) || '{}');
-      return json(res, 200, deleteArchive(deleteMatch[1], body.mode || 'file', { backup: body.backup }));
+      return json(res, 200, deleteArchive(deleteMatch[1], body.mode || 'file'));
     }
     text(res, 404, 'Not found');
   } catch (err) {
