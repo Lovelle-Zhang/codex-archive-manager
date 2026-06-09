@@ -12,6 +12,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 - Searches and filters normal conversations and automation runs.
 - Previews archived user/assistant conversations with `Preview`.
 - Opens the recorded project folder when it still exists locally.
+- Reveals the underlying record file in the system file manager.
 - Removes archived session files and the matching local Codex thread index record.
 
 ## Run
@@ -58,6 +59,15 @@ Current sessions can be previewed, but they cannot be deleted from this tool.
 ## Review Archives
 
 Use `Preview` to inspect the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
+
+Use `Reveal file` to locate the underlying `.jsonl` record in your system file manager.
+
+## Known Limits
+
+- Codex Desktop local storage is not a public stable API, so future Codex releases may change these paths or schemas.
+- The tool does not edit lower-level Codex logs such as `logs_2.sqlite`.
+- Current sessions can be inspected, but only archived sessions can be deleted.
+- File reveal uses the host OS file manager and is best tested on macOS.
 
 ## Safety Notes
 

@@ -302,6 +302,23 @@ function openProject(id) {
   return { opened: true, cwd: details.cwd };
 }
 
+function revealRecordFile(id) {
+  const row = getThreadRow(id);
+  const file = archivePathFor(id, row);
+  if (!file) throw new Error('This session has no record file to reveal');
+  if (!fs.existsSync(file)) throw new Error('Record file no longer exists');
+
+  if (process.platform === 'darwin') {
+    cp.execFileSync('open', ['-R', file], { stdio: 'ignore' });
+  } else if (process.platform === 'win32') {
+    cp.execFileSync('explorer', [`/select,${file}`], { stdio: 'ignore' });
+  } else {
+    cp.execFileSync('xdg-open', [path.dirname(file)], { stdio: 'ignore' });
+  }
+
+  return { revealed: true, file };
+}
+
 function removeFromSessionIndex(id) {
   if (!fs.existsSync(SESSION_INDEX)) return false;
   const original = fs.readFileSync(SESSION_INDEX, 'utf8');
@@ -1202,6 +1219,9 @@ const page = String.raw`<!doctype html>
         const deleteButton = item.status === 'current'
           ? ''
           : '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>';
+        const revealButton = item.exists
+          ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '">Reveal file</button>'
+          : '';
         const dateLabel = item.status === 'current' ? 'Updated ' : 'Archived ';
         const dateValue = item.status === 'current' ? (item.updatedAt || 'Unknown') : (item.archivedAt || 'Unknown');
         return ''
@@ -1213,6 +1233,7 @@ const page = String.raw`<!doctype html>
           + '<div class="row-side"><strong>Record file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
+          + revealButton
           + deleteButton
           + '</div>'
           + '</article>';
@@ -1248,6 +1269,7 @@ const page = String.raw`<!doctype html>
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
         + '<span class="delete-title">Archive to delete<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">Record file<span class="delete-name">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
         + '</span>'
@@ -1319,6 +1341,20 @@ const page = String.raw`<!doctype html>
       }
     }
 
+    async function revealCurrentFile(id) {
+      if (demoMode) {
+        showToast('Demo mode has no local file to reveal');
+        return;
+      }
+      try {
+        const res = await fetch('/api/archives/' + id + '/reveal-file', { method: 'POST' });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('Record file revealed');
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    }
+
     async function doDelete() {
       if (!pendingDelete) return;
       if (demoMode) {
@@ -1362,6 +1398,7 @@ const page = String.raw`<!doctype html>
       const item = archives.find(entry => entry.id === button.dataset.id);
       if (!item) return;
       if (button.dataset.action === 'view') showDetails(item);
+      else if (button.dataset.action === 'reveal') revealCurrentFile(item.id);
       else askDelete(item);
     });
 
@@ -1392,6 +1429,10 @@ const server = http.createServer(async (req, res) => {
     const openProjectMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)\/open-project$/);
     if (req.method === 'POST' && openProjectMatch) {
       return json(res, 200, openProject(openProjectMatch[1]));
+    }
+    const revealFileMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)\/reveal-file$/);
+    if (req.method === 'POST' && revealFileMatch) {
+      return json(res, 200, revealRecordFile(revealFileMatch[1]));
     }
     const deleteMatch = url.pathname.match(/^\/api\/archives\/(019e[0-9a-f-]+)$/);
     if (req.method === 'DELETE' && deleteMatch) {
