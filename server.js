@@ -712,7 +712,7 @@ const page = String.raw`<!doctype html>
     }
     .archive-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 200px 230px;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
       align-items: center;
       padding: 14px 16px;
@@ -752,7 +752,7 @@ const page = String.raw`<!doctype html>
       line-height: 1.35;
     }
     .row-side {
-      display: grid;
+      display: none;
       gap: 6px;
       min-width: 0;
       color: var(--muted);
@@ -769,10 +769,16 @@ const page = String.raw`<!doctype html>
       overflow-wrap: anywhere;
     }
     .row-actions {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(4, auto);
       gap: 8px;
       justify-content: flex-end;
-      flex-wrap: wrap;
+      align-items: center;
+    }
+    .row-actions button {
+      height: 34px;
+      padding: 0 9px;
+      font-size: 13px;
     }
     table {
       width: 100%;
@@ -1059,6 +1065,7 @@ const page = String.raw`<!doctype html>
       }
       .row-actions {
         justify-content: flex-start;
+        grid-template-columns: repeat(4, auto);
       }
     }
     @media (max-width: 760px) {
@@ -1079,7 +1086,10 @@ const page = String.raw`<!doctype html>
         padding: 13px;
       }
       .row-actions button {
-        flex: 1 1 112px;
+        width: 100%;
+      }
+      .row-actions {
+        grid-template-columns: 1fr 1fr;
       }
     }
     body.sidebar {
@@ -1356,15 +1366,15 @@ const page = String.raw`<!doctype html>
         const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
         const statusClass = item.status === 'unlisted' ? 'badge status-badge unlisted' : 'badge status-badge';
         const deleteButton = item.status === 'archived'
-          ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>'
+          ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete archive">Delete</button>'
           : item.status === 'unlisted'
-            ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger">Delete local record</button>'
+            ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete local record">Delete</button>'
             : '';
         const restoreButton = item.status === 'archived' && item.exists
-          ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost">Restore</button>'
+          ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost" title="Restore to Codex sidebar">Restore</button>'
           : '';
         const revealButton = item.exists
-          ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '">Reveal file</button>'
+          ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '" title="Reveal record file">Reveal</button>'
           : '';
         const dateLabel = item.status === 'archived' ? 'Archived ' : 'Updated ';
         const dateValue = item.status === 'archived' ? (item.archivedAt || 'Unknown') : (item.updatedAt || 'Unknown');
@@ -1374,11 +1384,10 @@ const page = String.raw`<!doctype html>
           + '<div class="row-topline"><span class="' + statusClass + '">' + escapeHtml(statusLabel(item)) + '</span><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
           + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>' + dateLabel + escapeHtml(dateValue) + '</span><span>' + size + '</span></div>'
           + '</div>'
-          + '<div class="row-side"><strong>Record file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
-          + revealButton
           + restoreButton
+          + revealButton
           + deleteButton
           + '</div>'
           + '</article>';
