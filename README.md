@@ -8,7 +8,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 
 ## What It Does
 
-- Lists archived and current Codex sessions with readable titles and timestamps.
+- Lists archived, current, and local sessions that are no longer shown in the Codex sidebar.
 - Searches and filters normal conversations and automation runs.
 - Previews archived user/assistant conversations with `Preview`.
 - Opens the recorded project folder when it still exists locally.
@@ -56,6 +56,8 @@ This only changes Codex archive/session metadata. It does not modify files insid
 
 Current sessions can be previewed, but they cannot be deleted from this tool.
 
+Rows marked `Not in sidebar` are local Codex session records that still exist on disk, but are not present in Codex's sidebar index. They can be previewed or revealed, but they are not treated as archived items.
+
 ## Review Archives
 
 Use `Preview` to inspect the archived user/assistant conversation, see the recorded project folder, and open that folder when it still exists locally.
@@ -66,7 +68,7 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 
 - Codex Desktop local storage is not a public stable API, so future Codex releases may change these paths or schemas.
 - The tool does not edit lower-level Codex logs such as `logs_2.sqlite`.
-- Current sessions can be inspected, but only archived sessions can be deleted.
+- Current and `Not in sidebar` sessions can be inspected, but only archived sessions can be deleted.
 - File reveal uses the host OS file manager and is best tested on macOS.
 
 ## Safety Notes

@@ -93,11 +93,10 @@ function readSessionNames() {
     }
     if (!record?.id || !/^019e[0-9a-f-]+$/.test(record.id)) continue;
     const name = compactOneLine(record.thread_name);
-    if (!name) continue;
 
     const updatedAt = Date.parse(record.updated_at || '') || 0;
     const existing = names.get(record.id) || { name: '', updatedAt: 0, aliases: [] };
-    if (!existing.aliases.includes(name)) existing.aliases.push(name);
+    if (name && !existing.aliases.includes(name)) existing.aliases.push(name);
     if (!existing.name || updatedAt >= existing.updatedAt) {
       existing.name = name;
       existing.updatedAt = updatedAt;
@@ -213,7 +212,8 @@ function getArchives() {
         exists,
         inDatabase: true,
         archivedFlag: false,
-        status: 'current',
+        indexed: Boolean(sessionName),
+        status: sessionName ? 'current' : 'unlisted',
       };
     });
 
@@ -732,6 +732,11 @@ const page = String.raw`<!doctype html>
       border-color: var(--line-strong);
       font-weight: 650;
     }
+    .status-badge.unlisted {
+      color: #725217;
+      background: #fff7df;
+      border-color: #eed38a;
+    }
     .path {
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1046,6 +1051,7 @@ const page = String.raw`<!doctype html>
         <select id="statusFilter">
           <option value="archived">Archived sessions</option>
           <option value="current">Current sessions</option>
+          <option value="unlisted">Not in sidebar</option>
           <option value="all">All sessions</option>
         </select>
         <label class="sr-only" for="filter">Filter</label>
@@ -1169,6 +1175,18 @@ const page = String.raw`<!doctype html>
           exists: true,
           sizeKB: 96,
           status: 'current'
+        },
+        {
+          id: 'demo-unlisted-1',
+          title: 'Set up a weekday morning briefing automation',
+          rolloutTime: '',
+          archivedAt: '',
+          updatedAt: '2026-06-01 15:43:07',
+          fileName: 'rollout-2026-05-29T21-38-06-demo-unlisted-1.jsonl',
+          file: 'rollout-2026-05-29T21-38-06-demo-unlisted-1.jsonl',
+          exists: true,
+          sizeKB: 203,
+          status: 'unlisted'
         }
       ];
     }
@@ -1180,7 +1198,9 @@ const page = String.raw`<!doctype html>
     }
 
     function statusLabel(item) {
-      return item.status === 'current' ? 'Current' : 'Archived';
+      if (item.status === 'current') return 'Current';
+      if (item.status === 'unlisted') return 'Not in sidebar';
+      return 'Archived';
     }
 
     function showToast(message) {
@@ -1194,11 +1214,13 @@ const page = String.raw`<!doctype html>
       const term = q.value.trim().toLowerCase();
       return archives.filter(item => {
         if (statusFilter.value === 'archived' && item.status === 'current') return false;
+        if (statusFilter.value === 'archived' && item.status === 'unlisted') return false;
         if (statusFilter.value === 'current' && item.status !== 'current') return false;
+        if (statusFilter.value === 'unlisted' && item.status !== 'unlisted') return false;
         if (filter.value === 'normal' && item.title.startsWith('Automation:')) return false;
         if (filter.value === 'automation' && !item.title.startsWith('Automation:')) return false;
         if (!term) return true;
-        return [item.title, ...(item.aliases || []), item.rolloutTime, item.archivedAt, item.fileName, item.id]
+        return [item.title, statusLabel(item), ...(item.aliases || []), item.rolloutTime, item.archivedAt, item.fileName, item.id]
           .join(' ')
           .toLowerCase()
           .includes(term);
@@ -1216,18 +1238,19 @@ const page = String.raw`<!doctype html>
         const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">File is missing from the archive folder</span>';
         const kind = archiveKind(item);
         const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
-        const deleteButton = item.status === 'current'
+        const statusClass = item.status === 'unlisted' ? 'badge status-badge unlisted' : 'badge status-badge';
+        const deleteButton = item.status !== 'archived'
           ? ''
           : '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger">Delete archive</button>';
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '">Reveal file</button>'
           : '';
-        const dateLabel = item.status === 'current' ? 'Updated ' : 'Archived ';
-        const dateValue = item.status === 'current' ? (item.updatedAt || 'Unknown') : (item.archivedAt || 'Unknown');
+        const dateLabel = item.status === 'archived' ? 'Archived ' : 'Updated ';
+        const dateValue = item.status === 'archived' ? (item.archivedAt || 'Unknown') : (item.updatedAt || 'Unknown');
         return ''
           + '<article class="archive-row">'
           + '<div class="row-main">'
-          + '<div class="row-topline"><span class="badge status-badge">' + escapeHtml(statusLabel(item)) + '</span><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
+          + '<div class="row-topline"><span class="' + statusClass + '">' + escapeHtml(statusLabel(item)) + '</span><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
           + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>' + dateLabel + escapeHtml(dateValue) + '</span><span>' + size + '</span></div>'
           + '</div>'
           + '<div class="row-side"><strong>Record file</strong><span class="row-file">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></div>'
