@@ -946,7 +946,6 @@ const page = String.raw`<!doctype html>
           <option value="all">全部归档</option>
           <option value="normal">普通对话</option>
           <option value="automation">自动化记录</option>
-          <option value="missing">索引残留</option>
         </select>
         <button id="refresh" class="primary">刷新</button>
         <span id="meta" class="meta">0 / 0</span>
@@ -1011,7 +1010,7 @@ const page = String.raw`<!doctype html>
     }
 
     function archiveKind(item) {
-      if (!item.exists) return '索引残留';
+      if (!item.exists) return '文件缺失';
       if (item.title.startsWith('Automation:')) return '自动化';
       return '对话';
     }
@@ -1028,7 +1027,6 @@ const page = String.raw`<!doctype html>
       return archives.filter(item => {
         if (filter.value === 'normal' && item.title.startsWith('Automation:')) return false;
         if (filter.value === 'automation' && !item.title.startsWith('Automation:')) return false;
-        if (filter.value === 'missing' && item.exists) return false;
         if (!term) return true;
         return [item.title, item.rolloutTime, item.archivedAt, item.fileName, item.id]
           .join(' ')
@@ -1047,7 +1045,7 @@ const page = String.raw`<!doctype html>
       rows.innerHTML = items.map(item => {
         const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">文件已不在归档夹</span>';
         const kind = archiveKind(item);
-        const badgeClass = kind === '自动化' ? 'badge auto' : kind === '索引残留' ? 'badge missing' : 'badge';
+        const badgeClass = kind === '自动化' ? 'badge auto' : kind === '文件缺失' ? 'badge missing' : 'badge';
         return ''
           + '<article class="archive-row">'
           + '<div class="row-main">'

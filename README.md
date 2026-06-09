@@ -7,7 +7,7 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 ## What It Does
 
 - Lists archived Codex sessions with readable titles and timestamps.
-- Searches and filters normal conversations, automation runs, and stale index entries.
+- Searches and filters normal conversations and automation runs.
 - Previews archived user/assistant conversations with `回看`.
 - Opens the recorded project folder when it still exists locally.
 - Removes archived session files and the matching local Codex thread index record.
