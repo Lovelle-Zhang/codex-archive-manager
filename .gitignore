@@ -1,0 +1,10 @@
+archive-manager-backups/
+node_modules/
+.DS_Store
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.jsonl
+.codex/
+archived_sessions/
