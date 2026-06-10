@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 - 2026-06-10
+
+- Changed the default server mode to read-only.
+- Added explicit write mode via `npm run start:write` / `CODEX_ARCHIVE_MANAGER_WRITE=1`.
+- Hid restore/delete/cleanup actions unless write mode is enabled.
+- Added a server-side guard so restore/delete/cleanup API routes are blocked in read-only mode.
+- Documented that the local web page is available only while the Node process is running.
+
 ## 0.1.0 - 2026-06-10
 
 - Added archive listing for archived, current, unlisted, and missing-file Codex session records.

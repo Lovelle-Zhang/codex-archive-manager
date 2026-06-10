@@ -21,6 +21,8 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Run
 
+Default mode is read-only. It can list, search, preview, and reveal local record files, but it cannot restore, delete, or remove Codex records.
+
 ```sh
 npm start
 ```
@@ -43,6 +45,14 @@ Demo mode with sample data:
 http://127.0.0.1:8787/?demo=1
 ```
 
+To enable restore/delete/cleanup actions, start the app explicitly in write mode:
+
+```sh
+npm run start:write
+```
+
+The web page is served by this local Node process. If the terminal process stops, the page stops loading; run `npm start` again to bring it back.
+
 ## What It Reads
 
 - `~/.codex/archived_sessions`
@@ -53,6 +63,8 @@ http://127.0.0.1:8787/?demo=1
 All data stays local. The app does not upload archives, database contents, project paths, or conversations.
 
 ## Delete Behavior
+
+Delete and cleanup actions are hidden and blocked unless the app is running in write mode.
 
 Use `Delete archive` to remove an archived `.jsonl` session file and delete the matching local Codex thread index row.
 
@@ -69,6 +81,8 @@ Rows marked `Not in sidebar` are local Codex session records that still exist on
 Rows marked `Missing file` are database records whose `.jsonl` file is no longer present. They can be removed as broken references, but cannot be restored by this tool.
 
 ## Restore Behavior
+
+Restore is hidden and blocked unless the app is running in write mode.
 
 Use `Restore` to move an archived session back to the Codex sidebar. The app copies the `.jsonl` file from `~/.codex/archived_sessions` back into `~/.codex/sessions/YYYY/MM/DD/`, marks the thread as not archived in `state_5.sqlite`, and appends a sidebar entry to `session_index.jsonl`.
 
@@ -90,6 +104,8 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 
 ## Safety Notes
 
+- The default `npm start` mode is read-only and blocks restore/delete/cleanup routes on the server.
+- Write mode must be enabled explicitly with `npm run start:write` or `CODEX_ARCHIVE_MANAGER_WRITE=1`.
 - This tool edits local Codex metadata only after you confirm a restore, delete, or cleanup action.
 - Use `Preview` as the dry run before confirming a restore, delete, or cleanup action.
 - Restore creates a backup under `~/.codex/archive-manager-backups/`; delete and remove actions do not create backup copies.
@@ -111,4 +127,4 @@ CODEX_HOME=/path/to/.codex PORT=8787 npm start
 
 ## Status
 
-`v0.1.0` is experimental. It is intended for local use with the current Codex Desktop storage layout.
+`v0.1.1` is experimental. It is intended for local use with the current Codex Desktop storage layout.

@@ -1,6 +1,6 @@
 {
   "name": "codex-archive-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial local-first archive viewer and cleaner for Codex Desktop sessions.",
   "repository": {
     "type": "git",
@@ -9,6 +9,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
+    "start:write": "CODEX_ARCHIVE_MANAGER_WRITE=1 node server.js",
     "check": "node --check server.js"
   },
   "keywords": [
