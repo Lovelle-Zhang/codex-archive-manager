@@ -791,16 +791,70 @@ const page = String.raw`<!doctype html>
       overflow-wrap: anywhere;
     }
     .row-actions {
-      display: grid;
-      grid-template-columns: repeat(4, auto);
+      display: flex;
       gap: 8px;
       justify-content: flex-end;
       align-items: center;
     }
-    .row-actions button {
+    .row-actions button,
+    .actions-menu summary {
       height: 34px;
       padding: 0 9px;
       font-size: 13px;
+    }
+    .actions-menu {
+      position: relative;
+    }
+    .actions-menu summary {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 620;
+    }
+    .actions-menu summary::-webkit-details-marker {
+      display: none;
+    }
+    .actions-menu[open] summary {
+      border-color: var(--accent);
+      outline: 3px solid rgba(23, 107, 135, .12);
+    }
+    .actions-menu-list {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 3;
+      display: grid;
+      min-width: 148px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .actions-menu-list button {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      border-color: transparent;
+      background: transparent;
+    }
+    .actions-menu-list button:hover:not(:disabled) {
+      background: var(--panel-soft);
+      transform: none;
+    }
+    .actions-menu-list button.danger {
+      color: var(--danger);
+      background: transparent;
+    }
+    .actions-menu-list button.danger:hover:not(:disabled) {
+      background: var(--danger-bg);
+      border-color: transparent;
     }
     table {
       width: 100%;
@@ -1092,7 +1146,6 @@ const page = String.raw`<!doctype html>
       }
       .row-actions {
         justify-content: flex-start;
-        grid-template-columns: repeat(4, auto);
       }
     }
     @media (max-width: 760px) {
@@ -1116,7 +1169,11 @@ const page = String.raw`<!doctype html>
         width: 100%;
       }
       .row-actions {
-        grid-template-columns: 1fr 1fr;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+      }
+      .actions-menu-list button {
+        width: 100%;
       }
     }
     body.sidebar {
@@ -1412,9 +1469,9 @@ const page = String.raw`<!doctype html>
             ? 'badge status-badge missing-status'
             : 'badge status-badge';
         const deleteButton = item.status === 'archived'
-          ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete archive">Delete</button>'
+          ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete archive">Delete archive</button>'
           : item.status === 'unlisted'
-            ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete local record">Delete</button>'
+            ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete local record">Delete local record</button>'
             : item.status === 'missing'
               ? '<button data-action="missing-record" data-id="' + escapeHtml(item.id) + '" title="Remove broken record">Remove record</button>'
               : '';
@@ -1423,6 +1480,10 @@ const page = String.raw`<!doctype html>
           : '';
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '" title="Reveal record file">Reveal</button>'
+          : '';
+        const menuItems = [revealButton, deleteButton].filter(Boolean).join('');
+        const moreMenu = menuItems
+          ? '<details class="actions-menu"><summary>More</summary><div class="actions-menu-list">' + menuItems + '</div></details>'
           : '';
         const dateLabel = item.status === 'archived' ? 'Archived ' : 'Updated ';
         const dateValue = item.status === 'archived' ? (item.archivedAt || 'Unknown') : (item.updatedAt || 'Unknown');
@@ -1435,8 +1496,7 @@ const page = String.raw`<!doctype html>
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
           + restoreButton
-          + revealButton
-          + deleteButton
+          + moreMenu
           + '</div>'
           + '</article>';
       }).join('');
@@ -1666,6 +1726,7 @@ const page = String.raw`<!doctype html>
     rows.addEventListener('click', event => {
       const button = event.target.closest('button[data-action]');
       if (!button) return;
+      button.closest('details')?.removeAttribute('open');
       const item = archives.find(entry => entry.id === button.dataset.id);
       if (!item) return;
       if (button.dataset.action === 'view') showDetails(item);
