@@ -725,6 +725,70 @@ const page = String.raw`<!doctype html>
       align-self: center;
       white-space: nowrap;
     }
+    .action-guide {
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      padding: 0 14px;
+    }
+    .action-guide summary {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: #3f464c;
+      font-size: 13px;
+      font-weight: 680;
+      list-style: none;
+      user-select: none;
+    }
+    .action-guide summary::-webkit-details-marker {
+      display: none;
+    }
+    .action-guide summary::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(45deg);
+      margin-left: 2px;
+      margin-top: -3px;
+      transition: transform .16s ease;
+    }
+    .action-guide[open] summary::after {
+      transform: rotate(225deg);
+      margin-top: 3px;
+    }
+    .guide-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px 14px;
+      margin: 0;
+      padding: 0;
+    }
+    .guide-item {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .guide-item dt {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 720;
+    }
+    .guide-item dd {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .guide-note {
+      margin: 12px 0 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
     .table-wrap {
       overflow: auto;
     }
@@ -1147,6 +1211,9 @@ const page = String.raw`<!doctype html>
       .row-actions {
         justify-content: flex-start;
       }
+      .guide-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
     @media (max-width: 760px) {
       .shell {
@@ -1174,6 +1241,9 @@ const page = String.raw`<!doctype html>
       }
       .actions-menu-list button {
         width: 100%;
+      }
+      .guide-grid {
+        grid-template-columns: 1fr;
       }
     }
     body.sidebar {
@@ -1218,6 +1288,13 @@ const page = String.raw`<!doctype html>
       grid-template-columns: 1fr;
       gap: 8px;
       padding: 10px 12px;
+    }
+    body.sidebar .action-guide {
+      padding: 0 12px;
+    }
+    body.sidebar .guide-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
     }
     body.sidebar .archive-row {
       grid-template-columns: minmax(0, 1fr);
@@ -1274,6 +1351,36 @@ const page = String.raw`<!doctype html>
         <button id="refresh" class="primary">Refresh</button>
         <span id="meta" class="meta">0 / 0</span>
       </div>
+      <details class="action-guide">
+        <summary>Action guide</summary>
+        <dl class="guide-grid">
+          <div class="guide-item">
+            <dt>Preview</dt>
+            <dd>Read the conversation before changing anything.</dd>
+          </div>
+          <div class="guide-item">
+            <dt>Restore</dt>
+            <dd>Move an archived session back to the Codex sidebar.</dd>
+          </div>
+          <div class="guide-item">
+            <dt>More > Reveal</dt>
+            <dd>Show the local record file in Finder or the system file manager.</dd>
+          </div>
+          <div class="guide-item">
+            <dt>More > Delete archive</dt>
+            <dd>Delete an archived record file and remove its Codex index row.</dd>
+          </div>
+          <div class="guide-item">
+            <dt>More > Delete local record</dt>
+            <dd>Delete a local record that exists on disk but is not shown in the Codex sidebar.</dd>
+          </div>
+          <div class="guide-item">
+            <dt>More > Remove record</dt>
+            <dd>Remove a broken database/sidebar reference when the record file is already missing.</dd>
+          </div>
+        </dl>
+        <p class="guide-note">These actions manage local Codex session records only. They do not modify project files, folders, or apps.</p>
+      </details>
       <div id="rows" class="archive-list"></div>
     </section>
   </main>
