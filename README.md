@@ -55,11 +55,15 @@ Use `Delete archive` to remove an archived `.jsonl` session file and delete the 
 
 Use `Delete local record` to remove a `Not in sidebar` session file from `~/.codex/sessions` and delete the matching local Codex database row.
 
+Use `Remove record` on `Missing file` rows to remove a broken database/sidebar reference without deleting any conversation file.
+
 This only changes Codex archive/session metadata. It does not modify files inside your project directories.
 
 Current sessions can be previewed, but they cannot be deleted from this tool.
 
 Rows marked `Not in sidebar` are local Codex session records that still exist on disk, but are not present in Codex's sidebar index. They can be previewed, revealed, or deleted as local records.
+
+Rows marked `Missing file` are database records whose `.jsonl` file is no longer present. They can be removed as broken references, but cannot be restored by this tool.
 
 ## Restore Behavior
 
@@ -77,7 +81,7 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 
 - Codex Desktop local storage is not a public stable API, so future Codex releases may change these paths or schemas.
 - The tool does not edit lower-level Codex logs such as `logs_2.sqlite`.
-- Current sessions can be inspected, but only archived and `Not in sidebar` records can be deleted.
+- Current sessions can be inspected, but only archived, `Not in sidebar`, and `Missing file` records can be removed.
 - Restore relies on Codex's current local sidebar index format and may need updates if Codex changes it.
 - File reveal uses the host OS file manager and is best tested on macOS.
 

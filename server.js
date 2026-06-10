@@ -192,6 +192,9 @@ function getArchives() {
     .filter(row => row.archived && !fileEntries.some(entry => entry.id === row.id))
     .map(row => {
       const sessionName = sessionNames.get(row.id);
+      const file = row.rollout_path || '';
+      const exists = Boolean(file && fs.existsSync(file));
+      const stat = exists ? fs.statSync(file) : null;
       return {
         id: row.id,
         title: compactTitle(row, row.id, sessionName),
@@ -199,13 +202,13 @@ function getArchives() {
         rolloutTime: '',
         updatedAt: localTime(row.updated_at),
         archivedAt: localTime(row.archived_at),
-        sizeKB: 0,
-        file: row.rollout_path,
-        fileName: path.basename(row.rollout_path || ''),
-        exists: false,
+        sizeKB: stat ? Math.round(stat.size / 1024) : 0,
+        file,
+        fileName: path.basename(file || ''),
+        exists,
         inDatabase: true,
         archivedFlag: true,
-        status: 'archived',
+        status: exists ? 'archived' : 'missing',
       };
     });
 
@@ -230,7 +233,7 @@ function getArchives() {
         inDatabase: true,
         archivedFlag: false,
         indexed: Boolean(sessionName),
-        status: sessionName ? 'current' : 'unlisted',
+        status: exists ? (sessionName ? 'current' : 'unlisted') : 'missing',
       };
     });
 
@@ -424,9 +427,10 @@ function restoreArchive(id) {
 
 function deleteArchive(id, mode) {
   if (!id || !/^019e[0-9a-f-]+$/.test(id)) throw new Error('Invalid archive id');
-  if (!['file', 'index', 'local-record'].includes(mode)) throw new Error('Invalid delete mode');
+  if (!['file', 'index', 'local-record', 'missing-record'].includes(mode)) throw new Error('Invalid delete mode');
 
   if (mode === 'local-record') return deleteLocalRecord(id);
+  if (mode === 'missing-record') return removeMissingRecord(id);
 
   const entries = getArchives().filter(entry => entry.id === id && entry.status !== 'current');
   if (!entries.length) throw new Error('Archive was not found');
@@ -455,6 +459,24 @@ function deleteArchive(id, mode) {
     result.removedSessionIndexLines = removeFromSessionIndex(id);
   }
 
+  return result;
+}
+
+function removeMissingRecord(id) {
+  const entry = getArchives().find(item => item.id === id && item.status === 'missing');
+  if (!entry) throw new Error('Missing-file record was not found');
+
+  const result = {
+    id,
+    mode: 'missing-record',
+    removedFiles: [],
+    removedDatabaseRow: false,
+    removedSessionIndexLines: false,
+  };
+
+  sqliteRun(`delete from threads where id = ${sqlQuote(id)};`);
+  result.removedDatabaseRow = true;
+  result.removedSessionIndexLines = removeFromSessionIndex(id);
   return result;
 }
 
@@ -859,6 +881,11 @@ const page = String.raw`<!doctype html>
       background: #fff7df;
       border-color: #eed38a;
     }
+    .status-badge.missing-status {
+      color: var(--warning);
+      background: var(--warning-bg);
+      border-color: #f2d58d;
+    }
     .path {
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1178,6 +1205,7 @@ const page = String.raw`<!doctype html>
           <option value="archived">Archived sessions</option>
           <option value="current">Current sessions</option>
           <option value="unlisted">Not in sidebar</option>
+          <option value="missing">Missing file</option>
           <option value="all">All sessions</option>
         </select>
         <label class="sr-only" for="filter">Filter</label>
@@ -1313,12 +1341,23 @@ const page = String.raw`<!doctype html>
           exists: true,
           sizeKB: 203,
           status: 'unlisted'
+        },
+        {
+          id: 'demo-missing-1',
+          title: 'Old session with missing record file',
+          rolloutTime: '',
+          archivedAt: '2026/6/4 12:18:22',
+          updatedAt: '2026-06-04 12:18:22',
+          fileName: 'rollout-2026-06-04T12-18-22-demo-missing-1.jsonl',
+          file: '/demo/missing/rollout-2026-06-04T12-18-22-demo-missing-1.jsonl',
+          exists: false,
+          sizeKB: 0,
+          status: 'missing'
         }
       ];
     }
 
     function archiveKind(item) {
-      if (!item.exists) return 'Missing file';
       if (item.title.startsWith('Automation:')) return 'Automation';
       return 'Conversation';
     }
@@ -1326,6 +1365,7 @@ const page = String.raw`<!doctype html>
     function statusLabel(item) {
       if (item.status === 'current') return 'Current';
       if (item.status === 'unlisted') return 'Not in sidebar';
+      if (item.status === 'missing') return 'Missing file';
       return 'Archived';
     }
 
@@ -1341,8 +1381,10 @@ const page = String.raw`<!doctype html>
       return archives.filter(item => {
         if (statusFilter.value === 'archived' && item.status === 'current') return false;
         if (statusFilter.value === 'archived' && item.status === 'unlisted') return false;
+        if (statusFilter.value === 'archived' && item.status === 'missing') return false;
         if (statusFilter.value === 'current' && item.status !== 'current') return false;
         if (statusFilter.value === 'unlisted' && item.status !== 'unlisted') return false;
+        if (statusFilter.value === 'missing' && item.status !== 'missing') return false;
         if (filter.value === 'normal' && item.title.startsWith('Automation:')) return false;
         if (filter.value === 'automation' && !item.title.startsWith('Automation:')) return false;
         if (!term) return true;
@@ -1361,15 +1403,21 @@ const page = String.raw`<!doctype html>
         return;
       }
       rows.innerHTML = items.map(item => {
-        const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">File is missing from the archive folder</span>';
+        const size = item.exists ? item.sizeKB + ' KB' : '<span class="missing">Record file is missing</span>';
         const kind = archiveKind(item);
         const badgeClass = kind === 'Automation' ? 'badge auto' : kind === 'Missing file' ? 'badge missing' : 'badge';
-        const statusClass = item.status === 'unlisted' ? 'badge status-badge unlisted' : 'badge status-badge';
+        const statusClass = item.status === 'unlisted'
+          ? 'badge status-badge unlisted'
+          : item.status === 'missing'
+            ? 'badge status-badge missing-status'
+            : 'badge status-badge';
         const deleteButton = item.status === 'archived'
           ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete archive">Delete</button>'
           : item.status === 'unlisted'
             ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete local record">Delete</button>'
-            : '';
+            : item.status === 'missing'
+              ? '<button data-action="missing-record" data-id="' + escapeHtml(item.id) + '" title="Remove broken record">Remove record</button>'
+              : '';
         const restoreButton = item.status === 'archived' && item.exists
           ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost" title="Restore to Codex sidebar">Restore</button>'
           : '';
@@ -1412,12 +1460,32 @@ const page = String.raw`<!doctype html>
 
     function askDelete(item) {
       const isLocalRecord = item.status === 'unlisted';
-      pendingAction = { type: 'delete', id: item.id, mode: isLocalRecord ? 'local-record' : 'index' };
+      const isMissingRecord = item.status === 'missing';
+      pendingAction = {
+        type: 'delete',
+        id: item.id,
+        mode: isMissingRecord ? 'missing-record' : isLocalRecord ? 'local-record' : 'index'
+      };
       const confirmTitle = document.querySelector('#confirmTitle');
-      confirmTitle.textContent = isLocalRecord ? 'Delete this local record?' : 'Delete this archive?';
-      confirmDelete.textContent = isLocalRecord ? 'Delete local record' : 'Delete archive';
-      confirmDelete.className = 'danger';
-      const notes = isLocalRecord
+      confirmTitle.textContent = isMissingRecord
+        ? 'Remove this missing-file record?'
+        : isLocalRecord
+          ? 'Delete this local record?'
+          : 'Delete this archive?';
+      confirmDelete.textContent = isMissingRecord
+        ? 'Remove record'
+        : isLocalRecord
+          ? 'Delete local record'
+          : 'Delete archive';
+      confirmDelete.className = isMissingRecord ? '' : 'danger';
+      const notes = isMissingRecord
+        ? [
+            ['✓', 'Removes this broken reference from the Codex database.'],
+            ['✓', 'Removes any matching sidebar index entry.'],
+            ['✓', 'Does not delete any conversation file, because the file is already missing.'],
+            ['✓', 'Does not modify any files in the project used by this conversation.']
+          ]
+        : isLocalRecord
         ? [
             ['✓', 'Deletes this local Codex session file.'],
             ['✓', 'Removes this local record from the Codex database.'],
@@ -1430,7 +1498,7 @@ const page = String.raw`<!doctype html>
           ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
-        + '<span class="delete-title">' + (isLocalRecord ? 'Local record to delete' : 'Archive to delete') + '<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
+        + '<span class="delete-title">' + (isMissingRecord ? 'Broken record to remove' : isLocalRecord ? 'Local record to delete' : 'Archive to delete') + '<span class="delete-name">' + escapeHtml(item.title) + '</span></span>'
         + '<span class="delete-title">Record file<span class="delete-name">' + escapeHtml(item.fileName || item.file || 'Not found') + '</span></span>'
         + '<span class="delete-note">'
         + notes.map(note => '<div><strong>' + escapeHtml(note[0]) + '</strong><span>' + escapeHtml(note[1]) + '</span></div>').join('')
@@ -1563,6 +1631,7 @@ const page = String.raw`<!doctype html>
         dialog.close();
         await load();
         if (action.type === 'restore') showToast('Session restored to sidebar');
+        else if (action.mode === 'missing-record') showToast('Missing-file record removed');
         else showToast(action.mode === 'local-record' ? 'Local record deleted' : 'Archive deleted');
       } catch (err) {
         alert(err.message || String(err));
@@ -1572,8 +1641,12 @@ const page = String.raw`<!doctype html>
           confirmDelete.textContent = 'Restore';
           confirmDelete.className = 'primary';
         } else {
-          confirmDelete.textContent = action.mode === 'local-record' ? 'Delete local record' : 'Delete archive';
-          confirmDelete.className = 'danger';
+          confirmDelete.textContent = action.mode === 'missing-record'
+            ? 'Remove record'
+            : action.mode === 'local-record'
+              ? 'Delete local record'
+              : 'Delete archive';
+          confirmDelete.className = action.mode === 'missing-record' ? '' : 'danger';
         }
         pendingAction = null;
       }
