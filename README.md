@@ -15,6 +15,9 @@ Local-first archive viewer and cleaner for Codex Desktop sessions.
 - Reveals the underlying record file in the system file manager.
 - Restores archived sessions back to the Codex sidebar.
 - Removes archived session files and the matching local Codex thread index record.
+- Shows an action guide and diagnostics panel for local path troubleshooting.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Run
 
@@ -87,7 +90,9 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 
 ## Safety Notes
 
-- This tool edits local Codex metadata only when you choose `Delete archive`.
+- This tool edits local Codex metadata only after you confirm a restore, delete, or cleanup action.
+- Use `Preview` as the dry run before confirming a restore, delete, or cleanup action.
+- Restore creates a backup under `~/.codex/archive-manager-backups/`; delete and remove actions do not create backup copies.
 - Codex may also keep lower-level logs such as `logs_2.sqlite`; this tool intentionally does not edit those logs.
 - Back up your Codex data before using destructive actions on important sessions.
 - Do not commit your real `~/.codex` data, `.jsonl` archives, or SQLite databases.

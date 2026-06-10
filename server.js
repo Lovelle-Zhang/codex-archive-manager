@@ -574,6 +574,17 @@ const page = String.raw`<!doctype html>
       max-width: 680px;
       overflow-wrap: anywhere;
     }
+    .safety-notice {
+      max-width: 780px;
+      margin-top: 8px;
+      padding: 9px 11px;
+      border: 1px solid #cfe3d6;
+      border-radius: 8px;
+      background: #f2faf5;
+      color: #2d6042;
+      font-size: 12px;
+      line-height: 1.45;
+    }
     .status {
       display: flex;
       gap: 8px;
@@ -730,7 +741,13 @@ const page = String.raw`<!doctype html>
       background: #fff;
       padding: 0 14px;
     }
-    .action-guide summary {
+    .diagnostics {
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      padding: 0 14px;
+    }
+    .action-guide summary,
+    .diagnostics summary {
       min-height: 40px;
       display: flex;
       align-items: center;
@@ -742,10 +759,12 @@ const page = String.raw`<!doctype html>
       list-style: none;
       user-select: none;
     }
-    .action-guide summary::-webkit-details-marker {
+    .action-guide summary::-webkit-details-marker,
+    .diagnostics summary::-webkit-details-marker {
       display: none;
     }
-    .action-guide summary::after {
+    .action-guide summary::after,
+    .diagnostics summary::after {
       content: "";
       width: 7px;
       height: 7px;
@@ -756,7 +775,8 @@ const page = String.raw`<!doctype html>
       margin-top: -3px;
       transition: transform .16s ease;
     }
-    .action-guide[open] summary::after {
+    .action-guide[open] summary::after,
+    .diagnostics[open] summary::after {
       transform: rotate(225deg);
       margin-top: 3px;
     }
@@ -788,6 +808,25 @@ const page = String.raw`<!doctype html>
       color: var(--muted);
       font-size: 12px;
       line-height: 1.45;
+    }
+    .diagnostics-grid {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 8px 12px;
+      margin: 0;
+      padding: 0 0 14px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .diagnostics-grid dt {
+      color: var(--muted);
+      font-weight: 680;
+    }
+    .diagnostics-grid dd {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #3f464c;
+      overflow-wrap: anywhere;
     }
     .table-wrap {
       overflow: auto;
@@ -1292,9 +1331,16 @@ const page = String.raw`<!doctype html>
     body.sidebar .action-guide {
       padding: 0 12px;
     }
+    body.sidebar .diagnostics {
+      padding: 0 12px;
+    }
     body.sidebar .guide-grid {
       grid-template-columns: 1fr;
       gap: 8px;
+    }
+    body.sidebar .diagnostics-grid {
+      grid-template-columns: 1fr;
+      gap: 4px;
     }
     body.sidebar .archive-row {
       grid-template-columns: minmax(0, 1fr);
@@ -1325,6 +1371,7 @@ const page = String.raw`<!doctype html>
         <div class="brand">
           <h1>Codex Archive Manager</h1>
           <div class="subtitle" id="archivePath">Local archive</div>
+          <div class="safety-notice">Local only. This tool does not upload Codex data, and it changes local Codex metadata only after you confirm an action.</div>
         </div>
       </div>
     </div>
@@ -1381,6 +1428,23 @@ const page = String.raw`<!doctype html>
         </dl>
         <p class="guide-note">These actions manage local Codex session records only. They do not modify project files, folders, or apps.</p>
       </details>
+      <details class="diagnostics">
+        <summary>About / Diagnostics</summary>
+        <dl class="diagnostics-grid">
+          <dt>Codex home</dt>
+          <dd id="diagCodexHome">Loading</dd>
+          <dt>Archived sessions</dt>
+          <dd id="diagArchiveDir">Loading</dd>
+          <dt>Sessions</dt>
+          <dd id="diagSessionsDir">Loading</dd>
+          <dt>State database</dt>
+          <dd id="diagStateDb">Loading</dd>
+          <dt>Sidebar index</dt>
+          <dd id="diagSessionIndex">Loading</dd>
+          <dt>Backup folder</dt>
+          <dd id="diagBackupDir">Loading</dd>
+        </dl>
+      </details>
       <div id="rows" class="archive-list"></div>
     </section>
   </main>
@@ -1436,6 +1500,14 @@ const page = String.raw`<!doctype html>
     const detailsMessages = document.querySelector('#detailsMessages');
     const openProject = document.querySelector('#openProject');
     const closeDetails = document.querySelector('#closeDetails');
+    const diagnostics = {
+      codexHome: document.querySelector('#diagCodexHome'),
+      archiveDir: document.querySelector('#diagArchiveDir'),
+      sessionsDir: document.querySelector('#diagSessionsDir'),
+      stateDb: document.querySelector('#diagStateDb'),
+      sessionIndex: document.querySelector('#diagSessionIndex'),
+      backupDir: document.querySelector('#diagBackupDir'),
+    };
     let currentDetailsId = null;
 
     function escapeHtml(value) {
@@ -1540,6 +1612,15 @@ const page = String.raw`<!doctype html>
       showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2800);
     }
 
+    function setDiagnostics(data) {
+      diagnostics.codexHome.textContent = data.codexHome || 'Unknown';
+      diagnostics.archiveDir.textContent = data.archiveDir || 'Unknown';
+      diagnostics.sessionsDir.textContent = data.sessionsDir || 'Unknown';
+      diagnostics.stateDb.textContent = data.stateDb || 'Unknown';
+      diagnostics.sessionIndex.textContent = data.sessionIndex || 'Unknown';
+      diagnostics.backupDir.textContent = data.backupDir || 'Unknown';
+    }
+
     function visibleItems() {
       const term = q.value.trim().toLowerCase();
       return archives.filter(item => {
@@ -1614,6 +1695,14 @@ const page = String.raw`<!doctype html>
       if (demoMode) {
         archives = demoArchives();
         archivePath.textContent = 'Demo data. No local Codex files are read.';
+        setDiagnostics({
+          codexHome: '/demo/.codex',
+          archiveDir: '/demo/.codex/archived_sessions',
+          sessionsDir: '/demo/.codex/sessions',
+          stateDb: '/demo/.codex/state_5.sqlite',
+          sessionIndex: '/demo/.codex/session_index.jsonl',
+          backupDir: '/demo/.codex/archive-manager-backups',
+        });
         render();
         return;
       }
@@ -1622,6 +1711,7 @@ const page = String.raw`<!doctype html>
       const data = await res.json();
       archives = data.archives;
       archivePath.textContent = data.archiveDir || 'Local archive';
+      setDiagnostics(data);
       render();
     }
 
@@ -1650,18 +1740,21 @@ const page = String.raw`<!doctype html>
             ['✓', 'Removes this broken reference from the Codex database.'],
             ['✓', 'Removes any matching sidebar index entry.'],
             ['✓', 'Does not delete any conversation file, because the file is already missing.'],
-            ['✓', 'Does not modify any files in the project used by this conversation.']
+            ['✓', 'Does not modify any files in the project used by this conversation.'],
+            ['i', 'Use Preview as the dry run before confirming. This cleanup does not create a backup.']
           ]
         : isLocalRecord
         ? [
             ['✓', 'Deletes this local Codex session file.'],
             ['✓', 'Removes this local record from the Codex database.'],
-            ['✓', 'Does not modify any files in the project used by this conversation.']
+            ['✓', 'Does not modify any files in the project used by this conversation.'],
+            ['i', 'Use Preview as the dry run before confirming. This delete action does not create a backup copy.']
           ]
         : [
             ['✓', 'Deletes the archived conversation file.'],
             ['✓', 'Removes this item from the Codex archive list.'],
-            ['✓', 'Does not modify any files in the project used by this conversation.']
+            ['✓', 'Does not modify any files in the project used by this conversation.'],
+            ['i', 'Use Preview as the dry run before confirming. This delete action does not create a backup copy.']
           ];
       confirmBody.innerHTML = ''
         + '<span class="delete-summary">'
@@ -1858,6 +1951,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         codexHome: CODEX_HOME,
         archiveDir: ARCHIVE_DIR,
+        sessionsDir: SESSIONS_DIR,
+        stateDb: STATE_DB,
+        sessionIndex: SESSION_INDEX,
+        backupDir: BACKUP_DIR,
         archives: getArchives(),
         generatedAt: new Date().toISOString(),
       });
