@@ -53,6 +53,18 @@ npm run start:write
 
 The web page is served by this local Node process. If the terminal process stops, the page stops loading; run `npm start` again to bring it back.
 
+For a more stable local setup on macOS, install it as a user LaunchAgent:
+
+```sh
+npm run service:install
+```
+
+This starts the read-only server at login and restarts it if it exits. To remove the background service:
+
+```sh
+npm run service:uninstall
+```
+
 ## What It Reads
 
 - `~/.codex/archived_sessions`
@@ -82,7 +94,7 @@ Rows marked `Missing file` are database records whose `.jsonl` file is no longer
 
 ## Restore Behavior
 
-Restore is hidden and blocked unless the app is running in write mode.
+Restore is disabled and blocked unless the app is running in write mode.
 
 Use `Restore` to move an archived session back to the Codex sidebar. The app copies the `.jsonl` file from `~/.codex/archived_sessions` back into `~/.codex/sessions/YYYY/MM/DD/`, marks the thread as not archived in `state_5.sqlite`, and appends a sidebar entry to `session_index.jsonl`.
 
@@ -127,4 +139,4 @@ CODEX_HOME=/path/to/.codex PORT=8787 npm start
 
 ## Status
 
-`v0.1.1` is experimental. It is intended for local use with the current Codex Desktop storage layout.
+`v0.1.2` is experimental. It is intended for local use with the current Codex Desktop storage layout.
