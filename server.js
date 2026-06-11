@@ -558,7 +558,7 @@ const page = String.raw`<!doctype html>
     .shell {
       max-width: 1240px;
       margin: 0 auto;
-      padding: 16px 24px;
+      padding: 18px 24px;
     }
     .topbar {
       display: grid;
@@ -566,7 +566,7 @@ const page = String.raw`<!doctype html>
     }
     .brand {
       display: grid;
-      gap: 5px;
+      gap: 6px;
     }
     .title-row {
       display: flex;
@@ -585,13 +585,13 @@ const page = String.raw`<!doctype html>
       color: var(--muted);
       font-size: 13px;
       line-height: 1.5;
-      max-width: 820px;
+      max-width: 680px;
       overflow-wrap: anywhere;
     }
     .safety-notice {
       max-width: 860px;
-      margin-top: 4px;
-      padding: 7px 10px;
+      margin-top: 2px;
+      padding: 8px 10px;
       border: 1px solid #cfe3d6;
       border-radius: 8px;
       background: #f2faf5;
@@ -669,7 +669,7 @@ const page = String.raw`<!doctype html>
     main {
       max-width: 1240px;
       margin: 0 auto;
-      padding: 16px 24px 44px;
+      padding: 0 24px 44px;
     }
     .workspace {
       background: var(--panel);
@@ -680,10 +680,10 @@ const page = String.raw`<!doctype html>
     }
     .controls {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) 170px 160px auto minmax(52px, auto);
-      gap: 10px;
+      grid-template-columns: minmax(240px, 1fr) 160px 150px auto auto;
+      gap: 12px;
       align-items: center;
-      padding: 12px;
+      padding: 14px;
       background: var(--panel-soft);
       border-bottom: 1px solid var(--line);
     }
@@ -751,16 +751,9 @@ const page = String.raw`<!doctype html>
     }
     .meta {
       color: var(--muted);
-      font-size: 12px;
-      min-height: 32px;
-      padding: 0 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--panel);
+      font-size: 13px;
+      min-height: 18px;
       align-self: center;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       white-space: nowrap;
     }
     .action-guide {
@@ -864,10 +857,10 @@ const page = String.raw`<!doctype html>
     }
     .archive-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 190px 176px;
-      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
       align-items: center;
-      padding: 15px 18px;
+      padding: 14px 16px;
       border-bottom: 1px solid var(--line);
       background: var(--panel);
       transition: background-color .12s ease;
@@ -880,7 +873,7 @@ const page = String.raw`<!doctype html>
     }
     .row-main {
       display: grid;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
     }
     .row-topline {
@@ -904,7 +897,7 @@ const page = String.raw`<!doctype html>
       line-height: 1.35;
     }
     .row-side {
-      display: grid;
+      display: none;
       gap: 6px;
       min-width: 0;
       color: var(--muted);
@@ -919,7 +912,6 @@ const page = String.raw`<!doctype html>
     .row-file {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       overflow-wrap: anywhere;
-      color: var(--muted);
     }
     .row-actions {
       display: flex;
@@ -1275,9 +1267,6 @@ const page = String.raw`<!doctype html>
         grid-template-columns: minmax(0, 1fr);
         gap: 10px;
       }
-      .row-side {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
       .row-actions {
         justify-content: flex-start;
       }
@@ -1291,7 +1280,7 @@ const page = String.raw`<!doctype html>
       }
       main {
         margin-top: 0;
-        padding: 12px 16px 36px;
+        padding: 0 16px 36px;
       }
       .controls {
         grid-template-columns: 1fr;
@@ -1303,11 +1292,11 @@ const page = String.raw`<!doctype html>
         padding: 13px;
       }
       .row-actions button {
-        width: auto;
+        width: 100%;
       }
       .row-actions {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
       }
       .actions-menu-list button {
         width: 100%;
@@ -1725,11 +1714,7 @@ const page = String.raw`<!doctype html>
           + '<article class="archive-row">'
           + '<div class="row-main">'
           + '<div class="row-topline"><span class="' + statusClass + '">' + escapeHtml(statusLabel(item)) + '</span><span class="' + badgeClass + '">' + escapeHtml(kind) + '</span><span class="row-title">' + escapeHtml(item.title) + '</span></div>'
-          + '<div class="row-meta"><span class="row-file">' + escapeHtml(item.fileName || item.file || 'No record file') + '</span></div>'
-          + '</div>'
-          + '<div class="row-side">'
-          + '<span><strong>' + escapeHtml(dateLabel.trim()) + '</strong> ' + escapeHtml(dateValue) + '</span>'
-          + '<span><strong>Size</strong> ' + size + '</span>'
+          + '<div class="row-meta"><span>Session ' + escapeHtml(item.rolloutTime || item.updatedAt || '') + '</span><span>' + dateLabel + escapeHtml(dateValue) + '</span><span>' + size + '</span></div>'
           + '</div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
