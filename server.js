@@ -561,18 +561,14 @@ const page = String.raw`<!doctype html>
       padding: 18px 24px;
     }
     .topbar {
-      display: grid;
-      gap: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
     }
     .brand {
       display: grid;
-      gap: 6px;
-    }
-    .title-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 7px;
     }
     h1 {
       margin: 0;
@@ -589,9 +585,9 @@ const page = String.raw`<!doctype html>
       overflow-wrap: anywhere;
     }
     .safety-notice {
-      max-width: 860px;
-      margin-top: 2px;
-      padding: 8px 10px;
+      max-width: 780px;
+      margin-top: 8px;
+      padding: 9px 11px;
       border: 1px solid #cfe3d6;
       border-radius: 8px;
       background: #f2faf5;
@@ -624,12 +620,6 @@ const page = String.raw`<!doctype html>
       border-color: #b8dfc8;
       background: var(--ok-bg);
       color: var(--ok);
-    }
-    .mode-pill {
-      min-height: 24px;
-      padding: 0 9px;
-      font-size: 12px;
-      font-weight: 680;
     }
     .mini-button {
       min-height: 28px;
@@ -1316,7 +1306,7 @@ const page = String.raw`<!doctype html>
     }
     body.sidebar .topbar {
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
     body.sidebar h1 {
       font-size: 17px;
@@ -1324,11 +1314,12 @@ const page = String.raw`<!doctype html>
     body.sidebar .subtitle {
       display: none;
     }
-    body.sidebar .mode-pill,
-    body.sidebar #lastLoaded {
-      display: none;
+    body.sidebar .status {
+      justify-content: flex-start;
+      gap: 6px;
     }
-    body.sidebar .safety-notice {
+    body.sidebar .pill.ok,
+    body.sidebar #lastLoaded {
       display: none;
     }
     body.sidebar main {
@@ -1388,12 +1379,12 @@ const page = String.raw`<!doctype html>
     <div class="shell">
       <div class="topbar">
         <div class="brand">
-          <div class="title-row">
-            <h1>Codex Archive Manager</h1>
-            <span class="pill ok mode-pill" id="modePill">Read-only</span>
-          </div>
+          <h1>Codex Archive Manager</h1>
           <div class="subtitle" id="archivePath">Local archive</div>
           <div class="safety-notice" id="safetyNotice">Read-only mode. This tool can inspect local Codex records, but restore/delete actions are disabled unless write mode is enabled.</div>
+        </div>
+        <div class="status">
+          <span class="pill ok" id="modePill">Read-only</span>
         </div>
       </div>
     </div>
@@ -1432,7 +1423,7 @@ const page = String.raw`<!doctype html>
             <dd>Move an archived session back to the Codex sidebar. Requires write mode.</dd>
           </div>
           <div class="guide-item">
-            <dt>Reveal</dt>
+            <dt>More > Reveal</dt>
             <dd>Show the local record file in Finder or the system file manager.</dd>
           </div>
           <div class="guide-item">
@@ -1649,7 +1640,7 @@ const page = String.raw`<!doctype html>
     function setWriteMode(enabled) {
       writeEnabled = Boolean(enabled);
       modePill.textContent = writeEnabled ? 'Write mode' : 'Read-only';
-      modePill.className = writeEnabled ? 'pill mode-pill' : 'pill ok mode-pill';
+      modePill.className = writeEnabled ? 'pill' : 'pill ok';
       safetyNotice.textContent = writeEnabled
         ? 'Write mode is enabled. Restore, delete, and cleanup actions can change local Codex metadata after confirmation.'
         : 'Read-only mode. This tool can inspect local Codex records, but restore/delete actions are disabled unless you restart with npm run start:write.';
@@ -1703,8 +1694,7 @@ const page = String.raw`<!doctype html>
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '" title="Reveal record file">Reveal</button>'
           : '';
-        const directRevealButton = !writeEnabled ? revealButton : '';
-        const menuItems = [writeEnabled ? revealButton : '', deleteButton].filter(Boolean).join('');
+        const menuItems = [revealButton, deleteButton].filter(Boolean).join('');
         const moreMenu = menuItems
           ? '<details class="actions-menu"><summary>More</summary><div class="actions-menu-list">' + menuItems + '</div></details>'
           : '';
@@ -1718,7 +1708,6 @@ const page = String.raw`<!doctype html>
           + '</div>'
           + '<div class="row-actions">'
           + '<button data-action="view" data-id="' + escapeHtml(item.id) + '" class="ghost">Preview</button>'
-          + directRevealButton
           + restoreButton
           + moreMenu
           + '</div>'
