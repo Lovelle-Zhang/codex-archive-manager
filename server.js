@@ -1381,7 +1381,7 @@ const page = String.raw`<!doctype html>
         <div class="brand">
           <h1>Codex Archive Manager</h1>
           <div class="subtitle" id="archivePath">Local archive</div>
-          <div class="safety-notice">Local only. This tool does not upload Codex data, and it changes local Codex metadata only after you confirm an action.</div>
+          <div class="safety-notice" id="safetyNotice">Read-only mode. This tool can inspect local Codex records; start with npm run start:write to enable changes.</div>
         </div>
       </div>
     </div>
@@ -1417,7 +1417,7 @@ const page = String.raw`<!doctype html>
           </div>
           <div class="guide-item">
             <dt>Restore</dt>
-            <dd>Move an archived session back to the Codex sidebar.</dd>
+            <dd>Move an archived session back to the Codex sidebar. Requires write mode.</dd>
           </div>
           <div class="guide-item">
             <dt>More > Reveal</dt>
@@ -1425,15 +1425,15 @@ const page = String.raw`<!doctype html>
           </div>
           <div class="guide-item">
             <dt>More > Delete archive</dt>
-            <dd>Delete an archived record file and remove its Codex index row.</dd>
+            <dd>Delete an archived record file and remove its Codex index row. Requires write mode.</dd>
           </div>
           <div class="guide-item">
             <dt>More > Delete local record</dt>
-            <dd>Delete a local record that exists on disk but is not shown in the Codex sidebar.</dd>
+            <dd>Delete a local record that exists on disk but is not shown in the Codex sidebar. Requires write mode.</dd>
           </div>
           <div class="guide-item">
             <dt>More > Remove record</dt>
-            <dd>Remove a broken database/sidebar reference when the record file is already missing.</dd>
+            <dd>Remove a broken database/sidebar reference when the record file is already missing. Requires write mode.</dd>
           </div>
         </dl>
         <p class="guide-note">These actions manage local Codex session records only. They do not modify project files, folders, or apps.</p>
@@ -1487,6 +1487,7 @@ const page = String.raw`<!doctype html>
   <script>
     const params = new URLSearchParams(location.search);
     const demoMode = params.get('demo') === '1';
+    let writeEnabled = false;
 
     if (params.get('mode') === 'sidebar') {
       document.body.classList.add('sidebar');
@@ -1504,6 +1505,7 @@ const page = String.raw`<!doctype html>
     const confirmDelete = document.querySelector('#confirmDelete');
     const toast = document.querySelector('#toast');
     const archivePath = document.querySelector('#archivePath');
+    const safetyNotice = document.querySelector('#safetyNotice');
     const detailsDialog = document.querySelector('#details');
     const detailsTitle = document.querySelector('#detailsTitle');
     const detailsMeta = document.querySelector('#detailsMeta');
@@ -1631,6 +1633,13 @@ const page = String.raw`<!doctype html>
       diagnostics.backupDir.textContent = data.backupDir || 'Unknown';
     }
 
+    function setWriteMode(enabled) {
+      writeEnabled = Boolean(enabled);
+      safetyNotice.textContent = writeEnabled
+        ? 'Write mode is enabled. Restore, delete, and cleanup actions can change local Codex metadata after confirmation.'
+        : 'Read-only mode. This tool can inspect local Codex records; start with npm run start:write to enable changes.';
+    }
+
     function visibleItems() {
       const term = q.value.trim().toLowerCase();
       return archives.filter(item => {
@@ -1666,15 +1675,17 @@ const page = String.raw`<!doctype html>
           : item.status === 'missing'
             ? 'badge status-badge missing-status'
             : 'badge status-badge';
-        const deleteButton = item.status === 'archived'
+        const deleteButton = writeEnabled && item.status === 'archived'
           ? '<button data-action="index" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete archive">Delete archive</button>'
-          : item.status === 'unlisted'
+          : writeEnabled && item.status === 'unlisted'
             ? '<button data-action="local-record" data-id="' + escapeHtml(item.id) + '" class="danger" title="Delete local record">Delete local record</button>'
-            : item.status === 'missing'
+            : writeEnabled && item.status === 'missing'
               ? '<button data-action="missing-record" data-id="' + escapeHtml(item.id) + '" title="Remove broken record">Remove record</button>'
               : '';
         const restoreButton = item.status === 'archived' && item.exists
-          ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost" title="Restore to Codex sidebar">Restore</button>'
+          ? writeEnabled
+            ? '<button data-action="restore" data-id="' + escapeHtml(item.id) + '" class="ghost" title="Restore to Codex sidebar">Restore</button>'
+            : '<button class="ghost" disabled title="Start with npm run start:write to enable restore">Restore</button>'
           : '';
         const revealButton = item.exists
           ? '<button data-action="reveal" data-id="' + escapeHtml(item.id) + '" title="Reveal record file">Reveal</button>'
@@ -1705,6 +1716,7 @@ const page = String.raw`<!doctype html>
       if (demoMode) {
         archives = demoArchives();
         archivePath.textContent = 'Demo data. No local Codex files are read.';
+        setWriteMode(false);
         setDiagnostics({
           codexHome: '/demo/.codex',
           archiveDir: '/demo/.codex/archived_sessions',
@@ -1721,6 +1733,7 @@ const page = String.raw`<!doctype html>
       const data = await res.json();
       archives = data.archives;
       archivePath.textContent = data.archiveDir || 'Local archive';
+      setWriteMode(data.writeEnabled);
       setDiagnostics(data);
       render();
     }
