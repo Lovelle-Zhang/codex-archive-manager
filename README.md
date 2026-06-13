@@ -65,6 +65,14 @@ This starts the read-only server at login and restarts it if it exits. To remove
 npm run service:uninstall
 ```
 
+To run the background service in write mode instead:
+
+```sh
+npm run service:install:write
+```
+
+Run `npm run service:install` again to switch the background service back to read-only mode.
+
 ## What It Reads
 
 - `~/.codex/archived_sessions`
@@ -117,7 +125,7 @@ Use `Reveal file` to locate the underlying `.jsonl` record in your system file m
 ## Safety Notes
 
 - The default `npm start` mode is read-only and blocks restore/delete/cleanup routes on the server.
-- Write mode must be enabled explicitly with `npm run start:write` or `CODEX_ARCHIVE_MANAGER_WRITE=1`.
+- Write mode must be enabled explicitly with `npm run start:write`, `npm run service:install:write`, or `CODEX_ARCHIVE_MANAGER_WRITE=1`.
 - This tool edits local Codex metadata only after you confirm a restore, delete, or cleanup action.
 - Use `Preview` as the dry run before confirming a restore, delete, or cleanup action.
 - Restore creates a backup under `~/.codex/archive-manager-backups/`; delete and remove actions do not create backup copies.

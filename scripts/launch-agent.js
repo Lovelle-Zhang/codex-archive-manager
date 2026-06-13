@@ -26,9 +26,14 @@ function run(command, args, options = {}) {
   return cp.execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options });
 }
 
-function plist() {
+function plist(writeMode = false) {
   const outLog = path.join(logDir, 'out.log');
   const errLog = path.join(logDir, 'err.log');
+  const writeEnv = writeMode
+    ? `    <key>CODEX_ARCHIVE_MANAGER_WRITE</key>
+    <string>1</string>
+`
+    : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -46,6 +51,7 @@ function plist() {
   <dict>
     <key>PATH</key>
     <string>${xmlEscape(process.env.PATH || '/usr/local/bin:/usr/bin:/bin')}</string>
+${writeEnv}
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -72,14 +78,14 @@ function bootout() {
   }
 }
 
-function install() {
+function install(writeMode = false) {
   fs.mkdirSync(launchAgentsDir, { recursive: true });
   fs.mkdirSync(logDir, { recursive: true });
   if (fs.existsSync(plistPath)) bootout();
-  fs.writeFileSync(plistPath, plist(), 'utf8');
+  fs.writeFileSync(plistPath, plist(writeMode), 'utf8');
   run('launchctl', ['bootstrap', `gui/${process.getuid()}`, plistPath]);
   run('launchctl', ['kickstart', '-k', `gui/${process.getuid()}/${label}`]);
-  console.log(`Installed ${label}`);
+  console.log(`Installed ${label}${writeMode ? ' in write mode' : ''}`);
   console.log(`Open http://127.0.0.1:8787`);
 }
 
@@ -90,10 +96,12 @@ function uninstall() {
 }
 
 if (action === 'install') {
-  install();
+  install(false);
+} else if (action === 'install-write') {
+  install(true);
 } else if (action === 'uninstall') {
   uninstall();
 } else {
-  console.error('Usage: node scripts/launch-agent.js <install|uninstall>');
+  console.error('Usage: node scripts/launch-agent.js <install|install-write|uninstall>');
   process.exit(1);
 }

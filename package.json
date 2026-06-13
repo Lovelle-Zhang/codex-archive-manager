@@ -11,6 +11,7 @@
     "start": "node server.js",
     "start:write": "CODEX_ARCHIVE_MANAGER_WRITE=1 node server.js",
     "service:install": "node scripts/launch-agent.js install",
+    "service:install:write": "node scripts/launch-agent.js install-write",
     "service:uninstall": "node scripts/launch-agent.js uninstall",
     "check": "node --check server.js"
   },
